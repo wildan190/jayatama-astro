@@ -1,20 +1,30 @@
 ---
 import dbConnect from '../lib/db';
-import { CustomPage, WebConfig, Product } from '../lib/models';
+import { CustomPage, WebConfiguration, Product } from '../lib/models';
 import { SEO } from 'astro-seo';
 import Header from '../components/Header.astro';
 
 const { slug } = Astro.params;
+console.log('Resolving page for slug:', slug || '(root)');
 
 await dbConnect();
 let page;
-if (!slug) {
+if (!slug || slug === 'index') {
   page = await CustomPage.findOne({ isHome: true });
   if (!page) page = await CustomPage.findOne({ slug: 'home' });
+  if (!page) page = await CustomPage.findOne({ slug: 'index' });
+  // If still not found, just take the first published page as a last resort
+  if (!page) page = await CustomPage.findOne({ status: 'published' });
 } else {
   page = await CustomPage.findOne({ slug: slug });
 }
-const config = await WebConfig.findOne();
+
+if (page) {
+  console.log('Found page:', page.title, 'Status:', page.status);
+} else {
+  console.warn('No page found for slug:', slug || '(root)');
+}
+const config = await WebConfiguration.findOne();
 
 // Fetch products for productList blocks if needed
 const blockProducts: Record<string, any[]> = {};
@@ -87,77 +97,130 @@ const schemaMarkup = faqBlock ? {
     .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
     img { max-width: 100%; height: auto; }
     
+    .btn-primary { 
+      background: var(--primary); 
+      color: white; 
+      padding: 1rem 2.5rem; 
+      border-radius: 12px; 
+      text-decoration: none; 
+      font-weight: 800; 
+      display: inline-block; 
+      transition: 0.3s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); opacity: 0.9; }
+
     /* Hero Block */
-    .hero { 
-      position: relative; 
+    /* Compact Sections */
+    section { padding: 4rem 0; position: relative; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; position: relative; }
+
+    /* Alternating Backgrounds */
+    section:nth-of-type(even) { background-color: #f8fafc; }
+    section:nth-of-type(odd) { background-color: #ffffff; }
+
+    .hero-section { 
       min-height: 80vh; 
       display: flex; 
       align-items: center; 
-      color: white; 
-      background-size: cover; 
+      justify-content: center; 
+      text-align: center; 
+      color: white;
+      position: relative;
+      background-size: cover;
       background-position: center;
+      background-repeat: no-repeat;
+      overflow: hidden;
+      padding: 0; /* Hero stays full height */
     }
-    .hero-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
-    .hero-content { position: relative; z-index: 10; max-width: 800px; }
-    
-    /* Split Block */
-    .split-section { padding: 5rem 0; }
-    .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    .hero-section::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0.8));
+      z-index: 1;
+    }
+    .hero-content { position: relative; z-index: 2; max-width: 800px; padding: 0 1rem; }
+    .hero-title { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900; line-height: 1.1; margin-bottom: 1rem; }
+    .hero-subtitle { font-size: 1.1rem; opacity: 0.9; margin-bottom: 2rem; }
+    .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
     @media (max-width: 768px) { .split-grid { grid-template-columns: 1fr; gap: 2rem; } }
     
     /* CTA Block */
-    .cta-banner { padding: 5rem 0; background: var(--primary); color: white; text-align: center; }
-    .btn-white { background: white; color: var(--primary); padding: 1rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; margin-top: 2rem; }
+    .cta-banner { background: var(--primary); color: white; text-align: center; }
+    .btn-white { background: white; color: var(--primary); padding: 0.8rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; transition: 0.3s; }
+    .btn-white:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
     
     /* FAQ Block */
-    .faq-section { padding: 5rem 0; background: #f8fafc; }
-    .faq-item { background: white; padding: 1.5rem; border-radius: 16px; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
-    .faq-q { font-weight: 800; font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--primary); }
+    .faq-item { background: white; padding: 1.25rem; border-radius: 16px; margin-bottom: 0.75rem; border: 1px solid #e2e8f0; cursor: pointer; transition: 0.3s ease; }
+    .faq-item:hover { border-color: #3b82f6; transform: translateX(5px); }
+    .faq-q { font-weight: 800; font-size: 1.05rem; color: #1e293b; display: flex; justify-content: space-between; align-items: center; }
+    .faq-q::after { content: '+'; font-size: 1.5rem; transition: 0.3s; color: #94a3b8; }
+    .faq-a { max-height: 0; overflow: hidden; transition: 0.3s ease; color: #64748b; font-size: 0.95rem; line-height: 1.6; }
+    .faq-item.active .faq-a { max-height: 500px; padding-top: 1rem; }
+    .faq-item.active .faq-q::after { content: '-'; transform: rotate(180deg); }
+    .faq-item.active { border-color: #3b82f6; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.05); }
     
     /* Rich Text Block */
-    .rich-text { padding: 5rem 0; line-height: 1.8; }
-    .rich-text h1, .rich-text h2 { color: var(--primary); margin-top: 2rem; }
+    .rich-text, .rich-text-content { line-height: 1.7; color: #475569; }
+    .rich-text h2, .rich-text-content h2 { color: #0f172a; margin-top: 1.5rem; }
+    .rich-text p, .rich-text-content p { margin-bottom: 1.25rem; }
 
     /* Product List Block */
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; padding: 5rem 0; }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }
     .product-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #f1f5f9; transition: 0.3s; text-decoration: none; color: inherit; position: relative; }
-    .product-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    .product-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.08); }
     .product-img { width: 100%; aspect-ratio: 1; object-fit: cover; }
-    .product-info { padding: 1.5rem; }
-    .product-name { font-weight: 800; font-size: 1.25rem; margin-bottom: 0.5rem; }
-    .price-area { display: flex; align-items: center; gap: 0.75rem; }
-    .price-discounted { color: #6366f1; font-weight: 800; font-size: 1.25rem; }
-    .price-original { color: #94a3b8; text-decoration: line-through; font-size: 0.9rem; }
-    .discount-badge { position: absolute; top: 1rem; right: 1rem; background: #ef4444; color: white; padding: 0.4rem 0.8rem; border-radius: 99px; font-weight: 800; font-size: 0.75rem; z-index: 10; }
+    .product-info { padding: 1.25rem; }
+    .product-name { font-weight: 800; font-size: 1.1rem; margin-bottom: 0.4rem; color: #1e293b; }
+    .price-area { display: flex; align-items: center; gap: 0.5rem; }
+    .price-discounted { color: #3b82f6; font-weight: 800; font-size: 1.1rem; }
+    .price-original { color: #94a3b8; text-decoration: line-through; font-size: 0.85rem; }
+    .discount-badge { position: absolute; top: 0.75rem; right: 0.75rem; background: #ef4444; color: white; padding: 0.3rem 0.6rem; border-radius: 99px; font-weight: 800; font-size: 0.7rem; z-index: 10; }
 
     /* Clients Block */
-    .clients-grid { display: flex; flex-wrap: wrap; gap: 3rem; justify-content: center; align-items: center; padding: 5rem 0; }
-    .client-logo { height: 50px; width: auto; opacity: 0.5; filter: grayscale(100%); transition: 0.4s; }
-    .client-logo:hover { opacity: 1; filter: grayscale(0%); transform: scale(1.1); }
+    .clients-grid { display: flex; flex-wrap: wrap; gap: 2.5rem; justify-content: center; align-items: center; }
+    .client-logo { height: 40px; width: auto; opacity: 0.4; filter: grayscale(100%); transition: 0.3s; }
+    .client-logo:hover { opacity: 0.8; filter: grayscale(0%); transform: scale(1.05); }
+
+    /* Testimonials Block */
+    .testi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+    .testi-card { background: white; padding: 2rem; border-radius: 24px; border: 1px solid #f1f5f9; box-shadow: 0 10px 30px rgba(0,0,0,0.02); transition: 0.3s; position: relative; }
+    .testi-quote { position: absolute; top: 1.5rem; right: 1.5rem; opacity: 0.1; width: 32px; height: 32px; }
+
+    /* Flow Block */
+    .flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; position: relative; }
+    .flow-step { text-align: center; position: relative; z-index: 2; }
+    .flow-number { width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem; font-weight: 900; box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); border: 4px solid white; }
+    .flow-step h3 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.75rem; color: #0f172a; }
+    .flow-step p { font-size: 0.95rem; color: #64748b; line-height: 1.6; }
   </style>
 </head>
 <body>
   <Header />
   
-  {page.blocks.map((block: any) => {
+  {page.blocks?.map((block: any) => {
     if (block.type === 'hero') return (
-      <section class="hero" style={`background-image: url(${block.data.bgImage})`}>
-        <div class="hero-overlay"></div>
-        <div class="container">
-          <div class="hero-content">
-            <h1 style="font-size: 4rem; font-weight: 900; margin-bottom: 1.5rem; line-height: 1;">{block.data.title}</h1>
-            <p style="font-size: 1.25rem; opacity: 0.9; margin-bottom: 2.5rem;">{block.data.subtitle}</p>
-            {block.data.btnLabel && (
-              <a href={block.data.btnUrl} class="btn-white">{block.data.btnLabel}</a>
-            )}
-          </div>
+      <section class="hero-section" style={`background-image: url('${block.data.image || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070'}');`}>
+        <div class="hero-content">
+          <h1 class="hero-title" style="margin-bottom: 1rem;">{block.data.title}</h1>
+          <p class="hero-subtitle" style="margin-bottom: 1.5rem;">{block.data.subtitle}</p>
+          {(block.data.btnLabel || block.data.btnText) && (
+            <a href={block.data.btnUrl} class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem;">
+              {block.data.btnLabel || block.data.btnText}
+            </a>
+          )}
         </div>
       </section>
     );
 
     if (block.type === 'richText') return (
       <section class="rich-text">
-        <div class="container" set:html={block.data.html}></div>
+        <div class="container">
+          {block.data.title && <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 1rem; color: #0f172a;">{block.data.title}</h2>}
+          <div set:html={block.data.html} />
+        </div>
       </section>
     );
 
@@ -166,11 +229,11 @@ const schemaMarkup = faqBlock ? {
         <div class="container">
           <div class="split-grid" style={block.data.layout === 'right' ? 'direction: rtl' : ''}>
             <div style="direction: ltr">
-              <img src={block.data.image} alt={block.data.title} style="border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);" />
+              <img src={block.data.image || 'https://placehold.co/600x600?text=Jayatama+Project'} alt={block.data.title} style="border-radius: 24px; width: 100%; aspect-ratio: 1; object-fit: cover;" />
             </div>
             <div style="direction: ltr">
-              <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1.5rem;">{block.data.title}</h2>
-              <div style="font-size: 1.1rem; color: #64748b;" set:html={block.data.text}></div>
+              {block.data.title && <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem; color: #0f172a;">{block.data.title}</h2>}
+              <div class="rich-text-content" style="font-size: 1.1rem; color: #64748b; line-height: 1.8;" set:html={block.data.text}></div>
             </div>
           </div>
         </div>
@@ -180,9 +243,9 @@ const schemaMarkup = faqBlock ? {
     if (block.type === 'faq') return (
       <section class="faq-section">
         <div class="container">
-          <h2 style="text-align: center; margin-bottom: 3rem; font-size: 2.5rem; font-weight: 800;">Frequently Asked Questions</h2>
+          <h2 style="text-align: center; margin-bottom: 1.25rem; font-size: 2.2rem; font-weight: 800;">Frequently Asked Questions</h2>
           <div style="max-width: 800px; margin: 0 auto;">
-            {block.data.items.map((item: any) => (
+            {block.data.items?.map((item: any) => (
               <div class="faq-item">
                 <div class="faq-q">{item.q}</div>
                 <div class="faq-a">{item.a}</div>
@@ -195,83 +258,192 @@ const schemaMarkup = faqBlock ? {
 
     if (block.type === 'cta') return (
       <section class="cta-banner">
-        <div class="container">
-          <h2 style="font-size: 3rem; font-weight: 900; margin-bottom: 1rem;">{block.data.title}</h2>
-          <a href={block.data.btnUrl} class="btn-white" style="background: white; color: var(--primary);">{block.data.btnLabel}</a>
+        <div class="container" style="text-align: center;">
+          <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 0.5rem;">{block.data.title}</h2>
+          <a href={block.data.btnUrl} class="btn-white" style="background: white; color: var(--primary); padding: 0.8rem 2rem; border-radius: 12px; font-weight: 800; display: inline-block;">{block.data.btnLabel || block.data.btnText}</a>
         </div>
       </section>
     );
 
-    if (block.type === 'productList') return (
-      <section class="container">
-        <div class="product-grid">
-          {blockProducts[block._id.toString()]?.map((p: any) => {
-            const hasDiscount = p.discountPercentage > 0;
-            const discountedPrice = hasDiscount ? p.price * (1 - p.discountPercentage / 100) : p.price;
-            return (
-              <a href={`/products/${p._id}`} class="product-card">
-                {hasDiscount && <div class="discount-badge">{p.discountPercentage}% OFF</div>}
-                <img src={p.image || 'https://placehold.co/400x400'} alt={p.name} class="product-img" />
-                <div class="product-info">
-                  <h3 class="product-name">{p.name}</h3>
-                  <div class="price-area">
-                    <span class="price-discounted">Rp {discountedPrice.toLocaleString('id-ID')}</span>
-                    {hasDiscount && <span class="price-original">Rp {p.price.toLocaleString('id-ID')}</span>}
-                  </div>
-                </div>
-              </a>
-            );
-          })}
-        </div>
-      </section>
-    );
+    if (block.type === 'productList') {
+      const products = block.data.products || [];
+      return (
+        <section class="products-section">
+          <div class="container">
+            <h2 style="text-align: center; margin-bottom: 1.5rem; font-size: 2.2rem; font-weight: 800;">Our Projects</h2>
+            <div class="product-grid">
+              {products.map((p: any) => {
+                const hasDiscount = p.discountPercentage > 0;
+                const discountedPrice = hasDiscount ? p.price * (1 - p.discountPercentage / 100) : p.price;
+                return (
+                  <a href={`/products/${p.slug}`} class="product-card">
+                    {hasDiscount && <div class="discount-badge">{p.discountPercentage}% OFF</div>}
+                    <img src={p.image} alt={p.name} class="product-img" />
+                    <div class="product-info">
+                      <div class="product-name">{p.name}</div>
+                      <div class="price-area">
+                        <span class="price-discounted">Rp {discountedPrice.toLocaleString('id-ID')}</span>
+                        {hasDiscount && <span class="price-original">Rp {p.price.toLocaleString('id-ID')}</span>}
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      );
+    }
 
     if (block.type === 'clients') return (
-      <section class="container">
-        <div class="clients-grid">
-          {block.data.items?.map((item: any) => (
-            <img src={item.image} alt="Client Logo" class="client-logo" />
-          ))}
+      <section class="clients-section">
+        <div class="container">
+          <div class="clients-grid">
+            {block.data.items?.map((i: any) => (
+              <img src={i.image} alt="Client" class="client-logo" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+
+    if (block.type === 'testimonials') return (
+      <section class="testimonials-section">
+        <div class="container">
+          <h2 style="text-align: center; margin-bottom: 1.5rem; font-size: 2.2rem; font-weight: 800;">What Our Clients Say</h2>
+          <div class="testi-grid">
+            {block.data.items?.map((i: any) => (
+              <div class="testi-card">
+                <svg class="testi-quote" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21L14.017 18C14.017 16.8954 14.9124 16 16.017 16H19.017C19.5693 16 20.017 15.5523 20.017 15V9C20.017 8.44772 19.5693 8 19.017 8H14.017C13.4647 8 13.017 8.44772 13.017 9V15C13.017 16.8954 12.1216 18 11.017 18V21H14.017ZM5.017 21L5.017 18C5.017 16.8954 5.91243 16 7.017 16H10.017C10.5693 16 11.017 15.5523 11.017 15V9C11.017 8.44772 10.5693 8 10.017 8H5.017C4.46472 8 4.017 8.44772 4.017 9V15C4.017 16.8954 3.12157 18 2.017 18V21H5.017Z"/></svg>
+                <div style="color: #fbbf24; margin-bottom: 0.75rem;">
+                  {'★'.repeat(i.rating || 5)}{'☆'.repeat(5-(i.rating || 5))}
+                </div>
+                <p style="font-style: italic; color: #475569; margin-bottom: 1.5rem; font-size: 1rem;">"{i.text}"</p>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                  <img src={i.image || 'https://placehold.co/100x100?text=User'} alt={i.name} style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover;" />
+                  <div>
+                    <div style="font-weight: 800; color: #0f172a; font-size: 0.95rem;">{i.name}</div>
+                    <div style="font-size: 0.8rem; color: #64748b;">{i.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+
+    if (block.type === 'flow') return (
+      <section class="flow-section">
+        <div class="container">
+          <h2 style="text-align: center; margin-bottom: 1.5rem; font-size: 2.2rem; font-weight: 800;">Our Working Process</h2>
+          <div class="flow-grid">
+            {block.data.items?.map((i: any, idx: number) => (
+              <div class="flow-step">
+                <div class="flow-number">{idx + 1}</div>
+                <h3 style="margin-bottom: 0.5rem;">{i.title}</h3>
+                <p>{i.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     );
 
     if (block.type === 'contactForm') return (
-      <section class="container" style="padding: 5rem 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 3rem; background: #f8fafc; border-radius: 32px; border: 1px solid #e2e8f0; text-align: center;">
-          <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;">{block.data.title}</h2>
-          <p style="color: #64748b; margin-bottom: 2.5rem;">{block.data.subtitle}</p>
-          
-          <form class="whatsapp-form" data-phone={config?.whatsapp}>
-            <div style="text-align: left; margin-bottom: 1.5rem;">
-              <label style="display: block; font-weight: 700; margin-bottom: 0.5rem; font-size: 0.9rem;">Your Name</label>
-              <input type="text" name="name" placeholder="John Doe" required style="width: 100%; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; font-family: inherit;" />
+      <section class="contact-section">
+        <div class="container">
+          <div style="max-width: 800px; margin: 0 auto; padding: 3rem; background: white; border-radius: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+              <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 0.5rem; color: #0f172a;">{block.data.title || 'Mulai Proyek Anda'}</h2>
+              <p style="font-size: 1.1rem; color: #64748b;">{block.data.subtitle || 'Konsultasi gratis via WhatsApp'}</p>
             </div>
-            <div style="text-align: left; margin-bottom: 2rem;">
-              <label style="display: block; font-weight: 700; margin-bottom: 0.5rem; font-size: 0.9rem;">Message</label>
-              <textarea name="message" placeholder="How can we help you?" required style="width: 100%; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; font-family: inherit; height: 120px;"></textarea>
-            </div>
-            <button type="submit" style="width: 100%; padding: 1.25rem; background: #25d366; color: white; border: none; border-radius: 16px; font-weight: 800; font-size: 1.1rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
-              <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              {block.data.btnLabel}
-            </button>
-          </form>
+            
+            <form class="whatsapp-form-detailed" data-phone={config?.phone}>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                  <label class="form-label" style="display: block; font-weight: 700; margin-bottom: 0.4rem; color: #0f172a; font-size: 0.9rem;">Nama Lengkap</label>
+                  <input type="text" name="name" class="form-input" placeholder="Nama lengkap" style="width: 100%; padding: 0.8rem; border: 2px solid #f1f5f9; border-radius: 10px; font-family: inherit;" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="display: block; font-weight: 700; margin-bottom: 0.4rem; color: #0f172a; font-size: 0.9rem;">No. HP / WhatsApp</label>
+                  <input type="tel" name="phone" class="form-input" placeholder="0812..." style="width: 100%; padding: 0.8rem; border: 2px solid #f1f5f9; border-radius: 10px; font-family: inherit;" required />
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" style="display: block; font-weight: 700; margin-bottom: 0.4rem; color: #0f172a; font-size: 0.9rem;">Alamat Proyek</label>
+                <input type="text" name="address" class="form-input" placeholder="Lokasi proyek" style="width: 100%; padding: 0.8rem; border: 2px solid #f1f5f9; border-radius: 10px; font-family: inherit;" required />
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" style="display: block; font-weight: 700; margin-bottom: 0.4rem; color: #0f172a; font-size: 0.9rem;">Jenis Proyek</label>
+                <select name="project_type" class="form-input" style="width: 100%; padding: 0.8rem; border: 2px solid #f1f5f9; border-radius: 10px; font-family: inherit; background: white;" required>
+                  <option value="">Pilih Jenis Proyek</option>
+                  <option value="Rumah Tinggal">Rumah Tinggal</option>
+                  <option value="Ruko">Ruko</option>
+                  <option value="Gedung Bertingkat">Gedung Bertingkat</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="form-label" style="display: block; font-weight: 700; margin-bottom: 0.4rem; color: #0f172a; font-size: 0.9rem;">Pesan / Kebutuhan</label>
+                <textarea name="message" class="form-input" rows="3" placeholder="Misalnya: rumah 2 lantai" style="width: 100%; padding: 0.8rem; border: 2px solid #f1f5f9; border-radius: 10px; font-family: inherit; resize: vertical;" required></textarea>
+              </div>
+
+              <button type="submit" style="width: 100%; padding: 1rem; background: #25d366; color: white; border: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+                <svg style="width: 24px; height: 24px;" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.417-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.305 1.652zm6.599-3.835c1.406.832 3.275 1.488 5.238 1.489 5.452 0 9.889-4.438 9.892-9.895.001-2.646-1.03-5.132-2.903-7.005-1.873-1.873-4.359-2.903-7.007-2.904-5.451 0-9.887 4.437-9.89 9.894-.001 2.03.547 3.829 1.585 5.418l-1.041 3.804 3.926-1.029zm11.215-7.591c.158.113.193.309.145.441-.117.327-.69 1.188-.931 1.242-.258.058-.613.045-1.12-.162-.408-.165-2.115-.812-3.15-1.745-.807-.726-1.528-1.825-1.751-2.221-.223-.396-.024-.611.175-.809.18-.179.396-.462.594-.693.193-.231.258-.396.386-.66.128-.264.064-.496-.032-.693-.096-.197-.847-2.046-1.163-2.805-.306-.735-.618-.635-.847-.647-.215-.011-.462-.013-.709-.013-.248 0-.649.092-.99.462-.34.37-1.299 1.271-1.299 3.102s1.332 3.6 1.517 3.852c.184.253 2.622 4.004 6.352 5.613.887.382 1.579.611 2.118.782.89.282 1.701.242 2.342.145.714-.108 2.195-.898 2.503-1.765.308-.866.308-1.609.215-1.765-.093-.155-.34-.249-.688-.423z"/></svg>
+                {block.data.btnLabel || 'Kirim ke WhatsApp'}
+              </button>
+            </form>
+          </div>
         </div>
       </section>
     );
   })}
   
   <script is:inline>
-    document.querySelectorAll('.whatsapp-form').forEach(form => {
+    // FAQ Expansion
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const question = item.querySelector('.faq-q');
+      question.style.cursor = 'pointer';
+      question.addEventListener('click', () => {
+        const wasActive = item.classList.contains('active');
+        // Close all other FAQs
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+        // Toggle current
+        if (!wasActive) item.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.whatsapp-form-detailed').forEach(form => {
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         const name = form.querySelector('[name="name"]').value;
+        const phone_input = form.querySelector('[name="phone"]').value;
+        const address = form.querySelector('[name="address"]').value;
+        const projectType = form.querySelector('[name="project_type"]').value;
         const message = form.querySelector('[name="message"]').value;
-        const phone = form.dataset.phone || '628123456789';
+        const adminPhone = form.dataset.phone || '628123456789';
         
-        const text = `Halo Jayatama, saya *${name}*.\n\n${message}`;
+        const text = `*Halo Jayatama, Saya ingin bertanya tentang Proyek!*
+        
+*Detail Pengirim:*
+- Nama: ${name}
+- No. HP: ${phone_input}
+
+*Lokasi Proyek:*
+- Alamat: ${address}
+
+*Informasi Proyek:*
+- Jenis Proyek: ${projectType}
+- Kebutuhan: ${message}
+
+Terima kasih.`;
+
         const encodedText = encodeURIComponent(text);
-        const url = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodedText}`;
+        const url = `https://wa.me/${adminPhone.replace(/[^0-9]/g, '')}?text=${encodedText}`;
         
         window.open(url, '_blank');
       });

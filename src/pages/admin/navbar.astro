@@ -1,13 +1,14 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import dbConnect from '../../lib/db';
-import { WebConfig, CustomPage } from '../../lib/models';
+import { WebConfiguration, CustomPage } from '../../lib/models';
 
 await dbConnect();
-const config = await WebConfig.findOne();
+const config = await WebConfiguration.findOne();
 const pages = await CustomPage.find({ status: 'published' });
 
 const existingNavbar = config?.navbar || [];
+console.log('Navbar Page: Loaded items count:', existingNavbar.length);
 ---
 
 <AdminLayout title="Navbar Manager" activeNav="navbar" subtitle="Organize your website's main navigation structure.">
@@ -34,8 +35,9 @@ const existingNavbar = config?.navbar || [];
       <div id="navItemsContainer" class="nav-list">
         {existingNavbar.map((item: any) => (
           <div class="nav-row">
-            <div class="handle">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+            <div class="handle" style="display: flex; gap: 0.25rem;">
+              <button type="button" class="move-up-nav" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;">↑</button>
+              <button type="button" class="move-down-nav" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;">↓</button>
             </div>
             
             <div class="input-cell" style="flex: 1;">
@@ -148,6 +150,7 @@ const existingNavbar = config?.navbar || [];
       font-family: 'Outfit', sans-serif;
       font-weight: 600;
       transition: 0.2s;
+      text-transform: capitalize;
     }
     .ghost-input:focus, .ghost-select:focus {
       background: white;
@@ -186,7 +189,7 @@ const existingNavbar = config?.navbar || [];
     .save-btn:hover { background: #334155; transform: translateY(-2px); }
   </style>
 
-  <script is:inline define:vars={{ pagesData: pages.map(p => ({ slug: `/${p.slug}`, title: p.title })) }}>
+  <script define:vars={{ pagesData: pages.map(p => ({ slug: `/${p.slug}`, title: p.title })) }}>
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('navItemsContainer');
       const addBtn = document.getElementById('addNavItem');
@@ -195,8 +198,9 @@ const existingNavbar = config?.navbar || [];
       const createItemHTML = () => {
         const options = pagesData.map(p => `<option value="${p.slug}">${p.title}</option>`).join('');
         return `
-          <div class="handle">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+          <div class="handle" style="display: flex; gap: 0.25rem;">
+            <button type="button" class="move-up-nav" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;">↑</button>
+            <button type="button" class="move-down-nav" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;">↓</button>
           </div>
           <div class="input-cell" style="flex: 1;">
             <input type="text" class="nav-label ghost-input" placeholder="Label" required />
@@ -240,6 +244,16 @@ const existingNavbar = config?.navbar || [];
         if (e.target.closest('.remove-nav-item')) {
           e.target.closest('.nav-row').remove();
         }
+        if (e.target.closest('.move-up-nav')) {
+          const row = e.target.closest('.nav-row');
+          const prev = row.previousElementSibling;
+          if (prev) container.insertBefore(row, prev);
+        }
+        if (e.target.closest('.move-down-nav')) {
+          const row = e.target.closest('.nav-row');
+          const next = row.nextElementSibling;
+          if (next) container.insertBefore(next, row);
+        }
       });
 
       form.addEventListener('submit', async (e) => {
@@ -254,15 +268,32 @@ const existingNavbar = config?.navbar || [];
           });
         });
 
-        const res = await fetch('/api/config/navbar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ navbar: items })
-        });
+        console.log('API Request: Starting fetch...');
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-        if (res.ok) {
-          alert('Navigation updated!');
-          window.location.reload();
+          const res = await fetch('/api/config/navbar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ navbar: items }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          console.log('API Request: Response received', res.status);
+
+          if (res.ok) {
+            alert('Navigation updated!');
+            window.location.reload();
+          } else {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('API Error:', errorData);
+            alert('Failed to update navigation: ' + (errorData.error || res.statusText));
+          }
+        } catch (err) {
+          console.error('Fetch Error:', err);
+          alert('Error: ' + (err instanceof Error ? err.message : 'Connection failed'));
         }
       });
     });

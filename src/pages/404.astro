@@ -1,10 +1,10 @@
 ---
 import Header from '../components/Header.astro';
 import dbConnect from '../lib/db';
-import { WebConfig } from '../lib/models';
+import { WebConfiguration } from '../lib/models';
 
 await dbConnect();
-const config = await WebConfig.findOne();
+const config = await WebConfiguration.findOne();
 ---
 
 <!DOCTYPE html>

@@ -1,13 +1,15 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import dbConnect from '../../lib/db';
-import { WebConfig, MediaAsset } from '../../lib/models';
+import { WebConfiguration, MediaAsset } from '../../lib/models';
 
 await dbConnect();
-let config = await WebConfig.findOne();
+let config = await WebConfiguration.findOne();
 if (!config) {
-  config = await WebConfig.create({ webName: 'Jayatama' });
+  config = await WebConfiguration.create({ webName: 'Jayatama', navbar: [] });
 }
+if (!config.navbar) config.navbar = [];
+console.log('Server: Loaded config navbar count:', config.navbar.length);
 const media = await MediaAsset.find().sort({ createdAt: -1 });
 ---
 

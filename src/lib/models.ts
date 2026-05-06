@@ -40,7 +40,7 @@ const WebConfigSchema = new mongoose.Schema({
   navbar: [
     { label: String, url: String }
   ]
-});
+}, { timestamps: true, collection: 'webconfigs' });
 
 // Custom Page Schema (Page Builder)
 const CustomPageSchema = new mongoose.Schema({
@@ -67,5 +67,5 @@ const CustomPageSchema = new mongoose.Schema({
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);
 export const MediaAsset = mongoose.models.MediaAsset || mongoose.model('MediaAsset', MediaSchema);
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
-export const WebConfig = mongoose.models.WebConfig || mongoose.model('WebConfig', WebConfigSchema);
+export const WebConfiguration = mongoose.models.WebConfiguration || mongoose.model('WebConfiguration', WebConfigSchema);
 export const CustomPage = mongoose.models.CustomPage || mongoose.model('CustomPage', CustomPageSchema);

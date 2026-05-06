@@ -1,13 +1,13 @@
 ---
 import dbConnect from '../../lib/db';
-import { Product, WebConfig } from '../../lib/models';
+import { Product, WebConfiguration } from '../../lib/models';
 import Header from '../../components/Header.astro';
 
 const { id } = Astro.params;
 
 await dbConnect();
 const product = await Product.findById(id);
-const config = await WebConfig.findOne();
+const config = await WebConfiguration.findOne();
 
 if (!product) {
   return Astro.redirect('/');

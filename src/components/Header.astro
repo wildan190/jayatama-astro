@@ -1,9 +1,9 @@
 ---
 import dbConnect from '../lib/db';
-import { WebConfig } from '../lib/models';
+import { WebConfiguration } from '../lib/models';
 
 await dbConnect();
-const config = await WebConfig.findOne();
+const config = await WebConfiguration.findOne();
 const navbar = config?.navbar || [];
 ---
 
@@ -86,6 +86,7 @@ const navbar = config?.navbar || [];
     font-weight: 600;
     font-size: 0.95rem;
     transition: 0.2s;
+    text-transform: capitalize;
   }
 
   .nav-link:hover {
@@ -128,6 +129,7 @@ const navbar = config?.navbar || [];
     color: #1e293b;
     font-size: 1.25rem;
     font-weight: 700;
+    text-transform: capitalize;
   }
 
   @media (max-width: 768px) {

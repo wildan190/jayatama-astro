@@ -1,10 +1,12 @@
 ---
-import AdminLayout from '../../../layouts/AdminLayout.astro';
-import dbConnect from '../../../lib/db';
-import { MediaAsset, Product } from '../../../lib/models';
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import dbConnect from '../../../../lib/db';
+import { CustomPage, MediaAsset, Product } from '../../../../lib/models';
+
+const { id } = Astro.params;
 
 await dbConnect();
-const media = await MediaAsset.find().sort({ createdAt: -1 });
+const page = await CustomPage.findById(id);
 const products = await Product.find().sort({ name: 1 });
 const allProducts = products.map(p => ({
   _id: p._id.toString(),
@@ -13,48 +15,53 @@ const allProducts = products.map(p => ({
   image: p.image || '',
   discountPercentage: p.discountPercentage || 0
 }));
+const media = await MediaAsset.find().sort({ createdAt: -1 });
+
+// Sanitize initial blocks to plain objects
+const initialBlocks = JSON.parse(JSON.stringify(page.blocks || []));
+
+if (!page) return Astro.redirect('/admin/pages');
 ---
 
-<AdminLayout title="Create New Page" activeNav="pages" subtitle="Build custom pages with flexible blocks.">
-  <form id="pageBuilderForm">
-    <!-- General Settings Card -->
+<AdminLayout title={`Edit: ${page.title}`} activeNav="pages">
+  <form id="pageForm">
     <div class="card">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-        <div class="form-group">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; margin-bottom: 2rem;">
+        <div style="flex: 1;">
           <label class="form-label">Page Title</label>
-          <input type="text" name="title" id="pageTitle" class="form-input" placeholder="e.g. About Us" required />
+          <input type="text" name="title" class="form-input" style="font-size: 1.5rem; font-weight: 800;" value={page.title} required />
         </div>
-        <div class="form-group">
-          <label class="form-label">URL Slug (leave empty to auto-generate)</label>
-          <input type="text" name="slug" id="pageSlug" class="form-input" placeholder="e.g. about-us" />
+        <div style="width: 300px;">
+          <label class="form-label">Slug (URL)</label>
+          <input type="text" name="slug" class="form-input" placeholder="e.g. about-us" value={page.slug} required />
         </div>
       </div>
 
-      <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem; background: var(--primary-light); padding: 1rem; border-radius: 12px; color: var(--primary);">
-        <input type="checkbox" name="isHome" id="isHome" style="width: 20px; height: 20px;" />
-        <label for="isHome" style="font-weight: 700; cursor: pointer;">Assign as Home Page (Main Landing Page)</label>
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid var(--border);">
+        <input type="checkbox" name="isHome" id="isHome" checked={page.isHome} style="width: 20px; height: 20px;" />
+        <label for="isHome" style="font-weight: 700; cursor: pointer;">Assign as Home Page (sets slug to "/")</label>
       </div>
       
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
         <div class="form-group">
           <label class="form-label">SEO Meta Title</label>
-          <input type="text" name="seoTitle" class="form-input" placeholder="Custom title for Google search..." />
+          <input type="text" name="seoTitle" class="form-input" value={page.seo?.title} placeholder="Custom title for Google search..." />
         </div>
         <div class="form-group">
           <label class="form-label">SEO Keywords (separate with commas)</label>
-          <textarea name="seoKeywords" class="form-input" rows="1" placeholder="jayatama, contractor, architecture..."></textarea>
+          <textarea name="seoKeywords" class="form-input" rows="1" placeholder="jayatama, contractor, architecture...">{page.seo?.keywords?.join(', ')}</textarea>
         </div>
       </div>
       
       <div class="form-group" style="margin-top: 1rem;">
         <label class="form-label">SEO Meta Description</label>
-        <textarea name="seoDescription" class="form-input" rows="2" placeholder="Brief summary for Google search results..."></textarea>
+        <textarea name="seoDescription" class="form-input" rows="2" placeholder="Brief summary for Google search results...">{page.seo?.description}</textarea>
       </div>
     </div>
 
     <!-- Blocks Area -->
     <div id="blocksContainer">
-      <!-- Blocks will be injected here -->
+      <!-- Blocks will be injected here via JS -->
     </div>
 
     <!-- Add Block Buttons -->
@@ -76,7 +83,7 @@ const allProducts = products.map(p => ({
         <svg style="width: 20px; height: 20px; margin-right: 5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
         Live Preview
       </button>
-      <button type="button" id="saveDraftBtn" class="btn" style="flex: 1; background: #94a3b8; color: white;">Save as Draft</button>
+      <button type="button" id="saveDraftBtn" class="btn" style="flex: 1; background: #94a3b8; color: white;">Update Draft</button>
       <button type="submit" class="btn btn-primary" style="flex: 1;">Publish Page</button>
       <a href="/admin/pages" class="btn" style="background: var(--text-muted); color: white;">Cancel</a>
     </div>
@@ -93,10 +100,10 @@ const allProducts = products.map(p => ({
           <button type="button" id="closeModal" class="btn btn-danger">Close</button>
         </div>
       </div>
-      <div class="media-grid">
+      <div class="media-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; max-height: 400px; overflow-y: auto;">
         {media.map((item: any) => (
-          <div class="media-item select-media-item" data-url={item.data}>
-            <img src={item.data} alt={item.name} />
+          <div class="media-item select-media-item" data-url={item.data} style="cursor: pointer; border: 2px solid transparent; border-radius: 12px; overflow: hidden; aspect-ratio: 1; transition: 0.2s;">
+            <img src={item.data} style="width:100%; height:100%; object-fit:cover;" />
           </div>
         ))}
       </div>
@@ -117,7 +124,7 @@ const allProducts = products.map(p => ({
   </div>
 
   <script src="https://cdn.quilljs.com/1.3.6/quill.js" is:inline></script>
-  <script is:inline define:vars={{ allProducts }}>
+  <script is:inline define:vars={{ allProducts, initialBlocks, pageId: page._id.toString() }}>
     (function() {
       console.log('Page Builder Script Initializing...');
       
@@ -131,11 +138,9 @@ const allProducts = products.map(p => ({
           
           if (!blocksContainer) console.error('blocksContainer not found!');
           if (addBlockBtns.length === 0) console.error('No add-block-btn found!');
-          
-          let currentImageTarget = null;
-          let blockCount = 0;
+      let currentImageTarget = null;
+      let blockCount = 0;
 
-      // Block Templates
       const templates = {
         hero: (id) => `
           <div class="card block-card" data-type="hero" id="block-${id}">
@@ -174,9 +179,6 @@ const allProducts = products.map(p => ({
                 <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
               </div>
             </div>
-            <div class="form-group" style="margin-bottom: 1rem;">
-              <input type="text" class="form-input block-title" placeholder="Section Title (Optional)" style="font-size: 1.25rem; font-weight: 700;" />
-            </div>
             <div id="editor-${id}" style="height: 300px; background:white;"></div>
           </div>
         `,
@@ -198,6 +200,7 @@ const allProducts = products.map(p => ({
               <div class="image-selector-area">
                 <img class="img-preview" src="https://placehold.co/500x500?text=Split+Image" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:12px; cursor:pointer;" />
                 <input type="hidden" class="block-image-data" />
+                <p style="font-size:0.75rem; text-align:center; color:var(--text-muted); margin-top:0.5rem">Click to change image</p>
               </div>
               <div style="display: flex; flex-direction: column; gap: 1rem;">
                 <input type="text" class="form-input block-title" placeholder="Section Title" />
@@ -217,12 +220,9 @@ const allProducts = products.map(p => ({
               </div>
             </div>
             <div class="faq-items-container" style="display: flex; flex-direction: column; gap: 1rem;">
-               <div class="faq-item" style="border: 1px solid var(--border); padding: 1rem; border-radius: 12px;">
-                 <input type="text" class="form-input faq-q" placeholder="Question" style="margin-bottom:0.5rem" />
-                 <textarea class="form-input faq-a" placeholder="Answer"></textarea>
-               </div>
+               <!-- FAQ items will be added here -->
             </div>
-            <button type="button" class="btn btn-sm add-faq-item" style="margin-top:1rem; background: var(--bg-main);">+ Add FAQ Item</button>
+            <button type="button" class="btn btn-sm add-faq-item" style="margin-top:1.5rem; background: var(--primary-light); color: var(--primary);">+ Add Question</button>
           </div>
         `,
         cta: (id) => `
@@ -275,9 +275,7 @@ const allProducts = products.map(p => ({
                 <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
               </div>
             </div>
-            <div class="clients-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem;">
-               <!-- Client items here -->
-            </div>
+            <div class="clients-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem;"></div>
             <button type="button" class="btn btn-sm add-client-item" style="margin-top:1.5rem; background: var(--primary-light); color: var(--primary);">+ Add Client Logo</button>
           </div>
         `,
@@ -292,9 +290,9 @@ const allProducts = products.map(p => ({
               </div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 1rem;">
-               <input type="text" class="form-input block-title" placeholder="Form Title (e.g. Get in Touch)" />
-               <textarea class="form-input block-subtitle" placeholder="Form Subtitle/Description"></textarea>
-               <input type="text" class="form-input block-btn-label" placeholder="Button Text (e.g. Send to WhatsApp)" />
+               <input type="text" class="form-input block-title" placeholder="Form Title" />
+               <textarea class="form-input block-subtitle" placeholder="Form Subtitle"></textarea>
+               <input type="text" class="form-input block-btn-label" placeholder="Button Text" />
             </div>
           </div>
         `,
@@ -308,9 +306,7 @@ const allProducts = products.map(p => ({
                 <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
               </div>
             </div>
-            <div class="testimonials-container" style="display: flex; flex-direction: column; gap: 1rem;">
-               <!-- Testimonial items here -->
-            </div>
+            <div class="testimonials-container" style="display: flex; flex-direction: column; gap: 1rem;"></div>
             <button type="button" class="btn btn-sm add-testimonial-item" style="margin-top:1.5rem; background: var(--primary-light); color: var(--primary);">+ Add Testimonial</button>
           </div>
         `,
@@ -324,222 +320,225 @@ const allProducts = products.map(p => ({
                 <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
               </div>
             </div>
-            <div class="flow-items-container" style="display: flex; flex-direction: column; gap: 1rem;">
-               <!-- Flow steps here -->
-            </div>
+            <div class="flow-items-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;"></div>
             <button type="button" class="btn btn-sm add-flow-item" style="margin-top:1.5rem; background: var(--primary-light); color: var(--primary);">+ Add Step</button>
           </div>
         `
       };
 
-      // Add Block Event
-      addBlockBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.type;
-          console.log('Adding block of type:', type);
-          const id = blockCount++;
-          const div = document.createElement('div');
-          if (!templates[type]) {
-            console.error('Template not found for type:', type);
-            return;
-          }
-          div.innerHTML = templates[type](id);
-          blocksContainer.appendChild(div.firstElementChild);
+      // Function to add a block with initial data
+      const addBlock = (type, data = null) => {
+        console.log('addBlock called with type:', type);
+        if (!templates[type]) {
+          console.warn(`Unknown block type: ${type}`);
+          return { id: null, quillEditor: null };
+        }
+        const id = blockCount++;
+        const div = document.createElement('div');
+        div.innerHTML = templates[type](id);
+        const blockEl = div.firstElementChild;
+        blocksContainer.appendChild(blockEl);
 
-          // Initialize Quill for richText
-          if (type === 'richText') {
-            new Quill(`#editor-${id}`, { theme: 'snow' });
-          } else if (type === 'split') {
-            new Quill(`#split-editor-${id}`, { theme: 'snow' });
+        let quillEditor = null;
+        if (type === 'richText') {
+          quillEditor = new Quill(`#editor-${id}`, { theme: 'snow' });
+          if (data) {
+            quillEditor.root.innerHTML = data.html || data.content || '';
+            if (blockEl.querySelector('.block-title')) {
+              blockEl.querySelector('.block-title').value = data.title || '';
+            }
           }
-        });
-      });
-
-      // Handle Block Actions (Delete, Image Select, FAQ Add)
-      blocksContainer.addEventListener('click', (e) => {
-        const target = e.target;
-        
-        // Remove Block
-        if (target.classList.contains('remove-block')) {
-          target.closest('.block-card').remove();
+        } else if (type === 'split') {
+          quillEditor = new Quill(`#split-editor-${id}`, { theme: 'snow' });
+          if (data) {
+            quillEditor.root.innerHTML = data.text || data.content || '';
+            blockEl.querySelector('.block-title').value = data.title || '';
+            blockEl.querySelector('.split-layout').value = data.layout || 'left';
+            if (data.image) {
+               blockEl.querySelector('.img-preview').src = data.image;
+               blockEl.querySelector('.block-image-data').value = data.image;
+            }
+          }
+        } else if (type === 'hero' && data) {
+          blockEl.querySelector('.block-title').value = data.title || '';
+          blockEl.querySelector('.block-subtitle').value = data.subtitle || '';
+          blockEl.querySelector('.block-btn-label').value = data.btnLabel || data.btnText || '';
+          blockEl.querySelector('.block-btn-url').value = data.btnUrl || '';
+          if (data.image) {
+            blockEl.querySelector('.img-preview').src = data.image;
+            blockEl.querySelector('.block-image-data').value = data.image;
+          }
+        } else if (type === 'faq' && data) {
+          data.items?.forEach(item => addFaqItem(blockEl.querySelector('.faq-items-container'), item));
+        } else if (type === 'cta' && data) {
+          blockEl.querySelector('.block-title').value = data.title || '';
+          blockEl.querySelector('.block-btn-label').value = data.btnLabel || data.btnText || '';
+          blockEl.querySelector('.block-btn-url').value = data.btnUrl || '';
+        } else if (type === 'productList' && data) {
+           data.productIds?.forEach(pid => {
+             const cb = blockEl.querySelector(`.product-checkbox[value="${pid}"]`);
+             if (cb) cb.checked = true;
+           });
+        } else if (type === 'clients' && data) {
+          data.items?.forEach(i => addClientItem(blockEl.querySelector('.clients-container'), i));
+        } else if (type === 'contactForm' && data) {
+          blockEl.querySelector('.block-title').value = data.title || '';
+          blockEl.querySelector('.block-subtitle').value = data.subtitle || '';
+          blockEl.querySelector('.block-btn-label').value = data.btnLabel || '';
+        } else if (type === 'testimonials' && data) {
+          data.items?.forEach(i => addTestimonialItem(blockEl.querySelector('.testimonials-container'), i));
+        } else if (type === 'flow' && data) {
+          data.items?.forEach(i => addFlowItem(blockEl.querySelector('.flow-items-container'), i));
         }
 
-        // Reorder Blocks
+        return { id, quillEditor };
+      };
+
+      const addFaqItem = (container, data = null) => {
+        const item = document.createElement('div');
+        item.className = 'faq-item';
+        item.style = "border: 1px solid var(--border); padding: 1rem; border-radius: 12px; margin-bottom:1rem; position:relative;";
+        item.innerHTML = `
+          <input type="text" class="form-input faq-q" placeholder="Question" style="margin-bottom:0.5rem;" value="${data ? (data.q || data.question || '') : ''}" />
+          <textarea class="form-input faq-a" placeholder="Answer" rows="2">${data ? (data.a || data.answer || '') : ''}</textarea>
+          <button type="button" class="btn btn-sm btn-danger remove-faq-item" style="position: absolute; top: 10px; right: 10px;">×</button>
+        `;
+        container.appendChild(item);
+      };
+
+      const addClientItem = (container, data = null) => {
+        const item = document.createElement('div');
+        item.className = 'client-item';
+        item.style = "position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 0.5rem;";
+        item.innerHTML = `
+          <div class="image-selector-area">
+            <img class="img-preview" src="${data ? data.image : 'https://placehold.co/200x100?text=Logo'}" style="width:100%; aspect-ratio:2/1; object-fit:contain; cursor:pointer;" />
+            <input type="hidden" class="block-image-data" value="${data ? data.image : ''}" />
+          </div>
+          <button type="button" class="btn btn-sm btn-danger remove-client-item" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">×</button>
+        `;
+        container.appendChild(item);
+      };
+
+      const addTestimonialItem = (container, data = null) => {
+        const item = document.createElement('div');
+        item.className = 'testimonial-item';
+        item.style = "border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; background: white; position: relative; margin-bottom:1rem;";
+        item.innerHTML = `
+          <div style="display: grid; grid-template-columns: 80px 1fr; gap: 1.5rem;">
+            <div class="image-selector-area">
+              <img class="img-preview" src="${data ? data.image : 'https://placehold.co/100x100?text=User'}" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:50%; cursor:pointer;" />
+              <input type="hidden" class="block-image-data" value="${data ? data.image : ''}" />
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <div style="display: grid; grid-template-columns: 1fr 100px; gap: 1rem;">
+                <input type="text" class="form-input testi-name" placeholder="Client Name" value="${data ? data.name : ''}" />
+                <select class="form-input testi-rating">
+                  <option value="5" ${data?.rating == '5' ? 'selected' : ''}>5 Stars</option>
+                  <option value="4" ${data?.rating == '4' ? 'selected' : ''}>4 Stars</option>
+                  <option value="3" ${data?.rating == '3' ? 'selected' : ''}>3 Stars</option>
+                  <option value="2" ${data?.rating == '2' ? 'selected' : ''}>2 Stars</option>
+                  <option value="1" ${data?.rating == '1' ? 'selected' : ''}>1 Star</option>
+                </select>
+              </div>
+              <input type="text" class="form-input testi-role" placeholder="Role/Company" value="${data ? data.role : ''}" />
+              <textarea class="form-input testi-text" placeholder="Review..." rows="3">${data ? data.text || data.content : ''}</textarea>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-danger remove-testimonial-item" style="position: absolute; top: 10px; right: 10px;">×</button>
+        `;
+        container.appendChild(item);
+      };
+
+      const addFlowItem = (container, data = null) => {
+        const item = document.createElement('div');
+        item.className = 'flow-item';
+        item.style = "border: 1px solid var(--border); border-radius: 12px; padding: 1rem; background: #f8fafc; position: relative;";
+        item.innerHTML = `
+          <input type="text" class="form-input flow-title" placeholder="Step Title" style="margin-bottom:0.5rem; font-weight:700;" value="${data ? data.title : ''}" />
+          <textarea class="form-input flow-desc" placeholder="Description" rows="2">${data ? data.desc : ''}</textarea>
+          <button type="button" class="btn btn-sm btn-danger remove-flow-item" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">×</button>
+        `;
+        container.appendChild(item);
+      };
+
+      // Initial Load
+      initialBlocks?.forEach(b => addBlock(b.type, b.data));
+
+      // Event Listeners for Adding Blocks
+      addBlockBtns.forEach(btn => {
+        btn.addEventListener('click', () => addBlock(btn.dataset.type));
+      });
+
+      // Block Actions
+      blocksContainer.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target.classList.contains('remove-block')) target.closest('.block-card').remove();
         if (target.classList.contains('move-up')) {
           const card = target.closest('.block-card');
           const prev = card.previousElementSibling;
-          if (prev) {
-            blocksContainer.insertBefore(card, prev);
-          }
+          if (prev) blocksContainer.insertBefore(card, prev);
         }
         if (target.classList.contains('move-down')) {
           const card = target.closest('.block-card');
           const next = card.nextElementSibling;
-          if (next) {
-            blocksContainer.insertBefore(next, card);
-          }
+          if (next) blocksContainer.insertBefore(next, card);
         }
-
-        // Image Selector
         if (target.classList.contains('img-preview')) {
           currentImageTarget = target;
           modal.style.display = 'flex';
         }
-
-        // Add FAQ Item
-        if (target.classList.contains('add-faq-item')) {
-          const container = target.closest('.block-card').querySelector('.faq-items-container');
-          const item = document.createElement('div');
-          item.className = 'faq-item';
-          item.style = "border: 1px solid var(--border); padding: 1rem; border-radius: 12px; margin-top: 1rem;";
-          item.innerHTML = `
-            <input type="text" class="form-input faq-q" placeholder="Question" style="margin-bottom:0.5rem" />
-            <textarea class="form-input faq-a" placeholder="Answer"></textarea>
-            <button type="button" class="btn btn-sm btn-danger remove-faq-item" style="margin-top:0.5rem">Remove</button>
-          `;
-          container.appendChild(item);
-        }
-
-        // Add Client Item
-        if (target.classList.contains('add-client-item')) {
-          const container = target.closest('.block-card').querySelector('.clients-container');
-          const item = document.createElement('div');
-          item.className = 'client-item';
-          item.style = "position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 0.5rem;";
-          item.innerHTML = `
-            <div class="image-selector-area">
-              <img class="img-preview" src="https://placehold.co/200x100?text=Logo" style="width:100%; aspect-ratio:2/1; object-fit:contain; cursor:pointer;" />
-              <input type="hidden" class="block-image-data" />
-            </div>
-            <button type="button" class="btn btn-sm btn-danger remove-client-item" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">×</button>
-          `;
-          container.appendChild(item);
-        }
-
-        // Remove Client Item
-        if (target.classList.contains('remove-client-item')) {
-          target.closest('.client-item').remove();
-        }
-
-        // Add Testimonial Item
-        if (target.classList.contains('add-testimonial-item')) {
-          const container = target.closest('.block-card').querySelector('.testimonials-container');
-          const item = document.createElement('div');
-          item.className = 'testimonial-item';
-          item.style = "border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; background: white; position: relative;";
-          item.innerHTML = `
-            <div style="display: grid; grid-template-columns: 80px 1fr; gap: 1.5rem;">
-              <div class="image-selector-area">
-                <img class="img-preview" src="https://placehold.co/100x100?text=User" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:50%; cursor:pointer;" />
-                <input type="hidden" class="block-image-data" />
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <div style="display: grid; grid-template-columns: 1fr 100px; gap: 1rem;">
-                  <input type="text" class="form-input testi-name" placeholder="Client Name" />
-                  <select class="form-input testi-rating">
-                    <option value="5">5 Stars</option>
-                    <option value="4">4 Stars</option>
-                    <option value="3">3 Stars</option>
-                    <option value="2">2 Stars</option>
-                    <option value="1">1 Star</option>
-                  </select>
-                </div>
-                <input type="text" class="form-input testi-role" placeholder="Role/Company (e.g. CEO of TechCorp)" />
-                <textarea class="form-input testi-text" placeholder="The testimonial review..." rows="3"></textarea>
-              </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-danger remove-testimonial-item" style="position: absolute; top: 10px; right: 10px;">×</button>
-          `;
-          container.appendChild(item);
-        }
-
-        // Remove Testimonial Item
-        if (target.classList.contains('remove-testimonial-item')) {
-          target.closest('.testimonial-item').remove();
-        }
-
-        // Add Flow Item
-        if (target.classList.contains('add-flow-item')) {
-          const container = target.closest('.block-card').querySelector('.flow-items-container');
-          const stepNum = container.querySelectorAll('.flow-item').length + 1;
-          const item = document.createElement('div');
-          item.className = 'flow-item';
-          item.style = "border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; background: white; position: relative;";
-          item.innerHTML = `
-            <div style="display: flex; gap: 1rem; align-items: flex-start;">
-              <div style="background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;">${stepNum}</div>
-              <div style="flex: 1;">
-                <input type="text" class="form-input flow-title" placeholder="Step Title (e.g. Consultation)" style="margin-bottom: 0.5rem;" />
-                <textarea class="form-input flow-desc" placeholder="Step Description..." rows="2"></textarea>
-              </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-danger remove-flow-item" style="position: absolute; top: 10px; right: 10px;">×</button>
-          `;
-          container.appendChild(item);
-        }
-
-        // Remove Flow Item
-        if (target.classList.contains('remove-flow-item')) {
-          target.closest('.flow-item').remove();
-        }
-
-        // Remove FAQ Item
-        if (target.classList.contains('remove-faq-item')) {
-          target.closest('.faq-item').remove();
-        }
+        if (target.classList.contains('add-faq-item')) addFaqItem(target.closest('.block-card').querySelector('.faq-items-container'));
+        if (target.classList.contains('remove-faq-item')) target.closest('.faq-item').remove();
+        if (target.classList.contains('add-client-item')) addClientItem(target.closest('.block-card').querySelector('.clients-container'));
+        if (target.classList.contains('remove-client-item')) target.closest('.client-item').remove();
+        if (target.classList.contains('add-testimonial-item')) addTestimonialItem(target.closest('.block-card').querySelector('.testimonials-container'));
+        if (target.classList.contains('remove-testimonial-item')) target.closest('.testimonial-item').remove();
+        if (target.classList.contains('add-flow-item')) addFlowItem(target.closest('.block-card').querySelector('.flow-items-container'));
+        if (target.classList.contains('remove-flow-item')) target.closest('.flow-item').remove();
       });
 
-      // Media Selection logic
+      // Media Selector
       document.querySelectorAll('.select-media-item').forEach(item => {
         item.addEventListener('click', () => {
-          const url = item.dataset.url;
           if (currentImageTarget) {
-            currentImageTarget.src = url;
-            currentImageTarget.nextElementSibling.value = url;
+            currentImageTarget.src = item.dataset.url;
+            currentImageTarget.nextElementSibling.value = item.dataset.url;
           }
           modal.style.display = 'none';
         });
       });
-
       closeBtn.addEventListener('click', () => modal.style.display = 'none');
 
-      // Form Submission
-      const form = document.getElementById('pageBuilderForm');
-      const saveDraftBtn = document.getElementById('saveDraftBtn');
-      const previewBtn = document.getElementById('previewBtn');
-      const previewModal = document.getElementById('previewModal');
-      const previewIframe = document.getElementById('previewIframe');
-      const closePreview = document.getElementById('closePreview');
-
+      // Collect Blocks Data
       const collectBlocks = () => {
         const blocks = [];
         document.querySelectorAll('.block-card').forEach(block => {
           const type = block.dataset.type;
           let data = {};
-
           if (type === 'hero') {
             data = {
               title: block.querySelector('.block-title').value,
               subtitle: block.querySelector('.block-subtitle').value,
-              image: block.querySelector('.block-image-data').value,
               btnLabel: block.querySelector('.block-btn-label').value,
-              btnUrl: block.querySelector('.block-btn-url').value
+              btnUrl: block.querySelector('.block-btn-url').value,
+              image: block.querySelector('.block-image-data').value
             };
           } else if (type === 'richText') {
-            const container = block.querySelector('.ql-container');
-            const quill = Quill.find(container);
+            const editorId = block.querySelector('.ql-container').id;
+            const quill = Quill.find(document.getElementById(editorId));
             data = { 
-              title: block.querySelector('.block-title').value,
-              html: quill ? quill.root.innerHTML : '' 
+              title: block.querySelector('.block-title')?.value || '',
+              html: quill.root.innerHTML 
             };
           } else if (type === 'split') {
-            const container = block.querySelector('.ql-container');
-            const quill = Quill.find(container);
+            const editorId = block.querySelector('.ql-container').id;
+            const quill = Quill.find(document.getElementById(editorId));
             data = {
-              layout: block.querySelector('.split-layout').value,
-              image: block.querySelector('.block-image-data').value,
               title: block.querySelector('.block-title').value,
-              text: quill ? quill.root.innerHTML : ''
+              text: quill.root.innerHTML,
+              layout: block.querySelector('.split-layout').value,
+              image: block.querySelector('.block-image-data').value
             };
           } else if (type === 'faq') {
             const items = [];
@@ -551,26 +550,26 @@ const allProducts = products.map(p => ({
               }
             });
             data = { items };
+          } else if (type === 'flow') {
+            const items = [];
+            block.querySelectorAll('.flow-item').forEach(item => {
+              items.push({ title: item.querySelector('.flow-title').value, desc: item.querySelector('.flow-desc').value });
+            });
+            data = { items };
+          } else if (type === 'productList') {
+            const productIds = [];
+            block.querySelectorAll('.product-checkbox:checked').forEach(cb => productIds.push(cb.value));
+            data = { productIds };
+          } else if (type === 'clients') {
+            const items = [];
+            block.querySelectorAll('.client-item').forEach(item => items.push({ image: item.querySelector('.block-image-data').value }));
+            data = { items };
           } else if (type === 'cta') {
             data = {
               title: block.querySelector('.block-title').value,
               btnLabel: block.querySelector('.block-btn-label').value,
               btnUrl: block.querySelector('.block-btn-url').value
             };
-          } else if (type === 'productList') {
-            const productIds = [];
-            block.querySelectorAll('.product-checkbox:checked').forEach(cb => {
-              productIds.push(cb.value);
-            });
-            data = { productIds };
-          } else if (type === 'clients') {
-            const items = [];
-            block.querySelectorAll('.client-item').forEach(item => {
-              items.push({
-                image: item.querySelector('.block-image-data').value
-              });
-            });
-            data = { items };
           } else if (type === 'contactForm') {
             data = {
               title: block.querySelector('.block-title').value,
@@ -589,15 +588,6 @@ const allProducts = products.map(p => ({
               });
             });
             data = { items };
-          } else if (type === 'flow') {
-            const items = [];
-            block.querySelectorAll('.flow-item').forEach(item => {
-              items.push({
-                title: item.querySelector('.flow-title').value,
-                desc: item.querySelector('.flow-desc').value
-              });
-            });
-            data = { items };
           }
           blocks.push({ type, data });
         });
@@ -606,28 +596,28 @@ const allProducts = products.map(p => ({
 
       const renderPreview = () => {
         const blocks = collectBlocks();
+        const previewModal = document.getElementById('previewModal');
+        const previewIframe = document.getElementById('previewIframe');
+        
         let html = `
-          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;800&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Outfit', sans-serif; margin: 0; padding: 0; color: #0f172a; line-height: 1.6; }
-            .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
-            .hero { position: relative; min-height: 400px; display: flex; align-items: center; color: white; background-size: cover; background-position: center; }
-            .hero-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
-            .hero-content { position: relative; z-index: 10; padding: 4rem 0; }
-            .split-section { padding: 4rem 0; }
-            .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-            .btn-cta { background: #6366f1; color: white; padding: 1rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; margin-top: 1rem; }
-            .btn-primary { background: #6366f1; color: white; padding: 0.8rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; margin-top: 1.5rem; }
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap');
+            :root { --primary: #6366f1; }
+            body { font-family: 'Outfit', sans-serif; margin: 0; color: #1e293b; line-height: 1.6; padding: 0; }
+            .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+            section { padding: 3.5rem 0; }
+            section:nth-of-type(even) { background-color: #f8fafc; }
+            img { max-width: 100%; border-radius: 24px; }
+            .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; min-height: 60vh; }
+            .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+            .btn-cta { background: #6366f1; color: white; padding: 1rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; }
+            .btn-primary { background: #6366f1; color: white; padding: 0.8rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; margin-top: 1rem; }
             .faq-item { border: 1px solid #e2e8f0; border-radius: 16px; margin-bottom: 1rem; overflow: hidden; cursor: pointer; }
             .faq-q { padding: 1.25rem 1.5rem; background: #f8fafc; font-weight: 800; color: #6366f1; display: flex; justify-content: space-between; align-items: center; }
             .faq-q::after { content: '+'; }
             .faq-item.active .faq-q::after { content: '−'; }
             .faq-a { padding: 0 1.5rem; max-height: 0; overflow: hidden; transition: 0.3s; color: #475569; }
             .faq-item.active .faq-a { padding: 1.5rem; max-height: 500px; border-top: 1px solid #e2e8f0; }
-            section { padding: 5rem 0; }
-            img { max-width: 100%; border-radius: 24px; }
-            ul, ol { padding-left: 2.5rem; margin-bottom: 1.5rem; list-style-position: outside; }
-            li { margin-bottom: 0.5rem; display: list-item; }
             p { margin-bottom: 1.5rem; }
           </style>
         `;
@@ -787,17 +777,15 @@ const allProducts = products.map(p => ({
         previewModal.style.display = 'flex';
       };
 
-      previewBtn.addEventListener('click', renderPreview);
-      closePreview.addEventListener('click', () => { previewModal.style.display = 'none'; });
-
-      const submitPage = async (status = 'published') => {
+      // Submit Logic
+      const form = document.getElementById('pageForm');
+      const submitPage = async (status) => {
         const formData = new FormData(form);
         const blocks = collectBlocks();
-
-        const pageData = {
+        const payload = {
           title: formData.get('title'),
-          slug: document.getElementById('isHome').checked ? 'index' : (formData.get('slug') || formData.get('title').toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')),
-          isHome: document.getElementById('isHome').checked,
+          slug: formData.get('isHome') ? 'index' : formData.get('slug'),
+          isHome: formData.get('isHome') === 'on',
           status: status,
           blocks: blocks,
           seo: {
@@ -807,31 +795,24 @@ const allProducts = products.map(p => ({
           }
         };
 
-        const res = await fetch('/api/pages', {
-          method: 'POST',
+        const res = await fetch(`/api/pages/${pageId}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pageData)
+          body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-          window.location.href = '/admin/pages';
-        } else {
-          alert('Failed to save page');
-        }
+        if (res.ok) window.location.href = '/admin/pages';
+        else alert('Failed to update page');
       };
 
-      form.addEventListener('submit', (e) => {
+      document.getElementById('previewBtn')?.addEventListener('click', renderPreview);
+      document.getElementById('closePreview')?.addEventListener('click', () => {
+        document.getElementById('previewModal').style.display = 'none';
+      });
+      document.getElementById('saveDraftBtn')?.addEventListener('click', () => submitPage('draft'));
+      document.getElementById('pageForm')?.addEventListener('submit', (e) => {
         e.preventDefault();
         submitPage('published');
-      });
-
-      saveDraftBtn.addEventListener('click', () => {
-        const title = document.getElementById('pageTitle').value;
-        if (!title) {
-          alert('Please enter a page title first');
-          return;
-        }
-        submitPage('draft');
       });
         } catch (err) {
           console.error('Fatal error during initialization:', err);
@@ -848,33 +829,10 @@ const allProducts = products.map(p => ({
 
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <style is:global>
-    .block-card { 
-      border-left: 5px solid var(--primary); 
-      margin-bottom: 2rem;
-    }
+    .block-card { border-left: 5px solid var(--primary); margin-bottom: 2rem; }
     .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
-    
-    /* Responsive Grid for Blocks */
-    .block-grid-layout {
-      display: grid; 
-      grid-template-columns: 200px 1fr; 
-      gap: 2rem;
-    }
-
-    @media (max-width: 768px) {
-      .block-grid-layout {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-      .modal-content {
-        width: 95% !important;
-        padding: 1rem !important;
-      }
-      h1 { font-size: 1.5rem !important; }
-    }
-
-    /* Prevent horizontal scroll */
+    .block-grid-layout { display: grid; grid-template-columns: 200px 1fr; gap: 2rem; }
+    @media (max-width: 768px) { .block-grid-layout { grid-template-columns: 1fr; gap: 1rem; } }
     body { overflow-x: hidden; }
-    .wrapper { max-width: 100%; overflow-x: hidden; }
   </style>
 </AdminLayout>
