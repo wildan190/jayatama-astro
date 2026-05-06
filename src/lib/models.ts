@@ -17,6 +17,7 @@ const MediaSchema = new mongoose.Schema({
 // Product Schema
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  slug: { type: String, unique: true },
   price: { type: Number, required: true },
   discountPercentage: { type: Number, default: 0 },
   image: { type: String }, // URL or Base64 ID or path

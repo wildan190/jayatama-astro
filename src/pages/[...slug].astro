@@ -45,23 +45,69 @@ if (!page) {
 
 // Generate Schema Markup
 const faqBlock = page.blocks.find((b: any) => b.type === 'faq');
-const schemaMarkup = faqBlock ? {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": faqBlock.data.items.map((item: any) => ({
-    "@type": "Question",
-    "name": item.q,
-    "acceptedAnswer": {
-      "@type": "Answer",
-      "text": item.a
-    }
-  }))
-} : {
+const schemas = [];
+
+// Base WebPage Schema
+schemas.push({
   "@context": "https://schema.org",
   "@type": "WebPage",
   "name": page.title,
-  "description": page.seo?.description
-};
+  "description": page.seo?.description || config?.vision,
+  "url": Astro.url.href
+});
+
+// LocalBusiness / Contractor Schema
+schemas.push({
+  "@context": "https://schema.org",
+  "@type": "Contractor",
+  "name": config?.webName || "Jayatama Kontraktor",
+  "description": config?.vision,
+  "url": Astro.site || "https://jayatamaborepile.com",
+  "logo": config?.logo,
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "telephone": config?.phone || config?.whatsapp,
+    "contactType": "customer service"
+  }
+});
+
+// FAQ Schema if block exists
+if (faqBlock) {
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqBlock.data.items.map((item: any) => ({
+      "@type": "Question",
+      "name": item.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.a
+      }
+    }))
+  });
+}
+
+// Breadcrumb Schema
+if (slug && slug !== 'index') {
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": Astro.url.origin
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": page.title,
+        "item": Astro.url.href
+      }
+    ]
+  });
+}
 ---
 
 <!DOCTYPE html>
@@ -86,7 +132,7 @@ const schemaMarkup = faqBlock ? {
       }
     }}
   />
-  <script type="application/ld+json" set:html={JSON.stringify(schemaMarkup)} />
+  {schemas.map(s => <script type="application/ld+json" set:html={JSON.stringify(s)} />)}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
