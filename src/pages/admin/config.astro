@@ -55,7 +55,7 @@ const media = await MediaAsset.find().sort({ createdAt: -1 });
       <div>
         <h3>Contact & Social Media</h3>
         <div class="form-group">
-          <label class="form-label">WhatsApp</label>
+          <label class="form-label">WhatsApp Number (628...)</label>
           <input type="text" name="whatsapp" class="form-input" value={config.whatsapp} />
         </div>
         <div class="form-group">
@@ -63,16 +63,38 @@ const media = await MediaAsset.find().sort({ createdAt: -1 });
           <input type="email" name="email" class="form-input" value={config.email} />
         </div>
         <div class="form-group">
-          <label class="form-label">Instagram</label>
+          <label class="form-label">Instagram URL</label>
           <input type="text" name="instagram" class="form-input" value={config.instagram} />
         </div>
-        <div class="form-group">
-          <label class="form-label">Facebook</label>
-          <input type="text" name="facebook" class="form-input" value={config.facebook} />
+      </div>
+    </div>
+
+    <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+      <h3 style="margin-bottom: 1.5rem;">Footer Configuration</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
+        <div>
+          <label class="form-label">Column 1 Title</label>
+          <input type="text" name="footer.col1Title" class="form-input" value={config.footer?.col1Title || 'Perusahaan'} />
+          <label class="form-label" style="margin-top:1rem;">Column 1 Links (Format: Label | URL, one per line)</label>
+          <textarea name="footer.col1LinksRaw" class="form-input" rows="5">{config.footer?.col1Links?.map(l => `${l.label}|${l.url}`).join('\n')}</textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label">TikTok</label>
-          <input type="text" name="tiktok" class="form-input" value={config.tiktok} />
+        <div>
+          <label class="form-label">Column 2 Title</label>
+          <input type="text" name="footer.col2Title" class="form-input" value={config.footer?.col2Title || 'Layanan'} />
+          <label class="form-label" style="margin-top:1rem;">Column 2 Links (Format: Label | URL, one per line)</label>
+          <textarea name="footer.col2LinksRaw" class="form-input" rows="5">{config.footer?.col2Links?.map(l => `${l.label}|${l.url}`).join('\n')}</textarea>
+        </div>
+        <div>
+          <label class="form-label">Column 3 Title</label>
+          <input type="text" name="footer.col3Title" class="form-input" value={config.footer?.col3Title || 'Bantuan'} />
+          <label class="form-label" style="margin-top:1rem;">Column 3 Links (Format: Label | URL, one per line)</label>
+          <textarea name="footer.col3LinksRaw" class="form-input" rows="5">{config.footer?.col3Links?.map(l => `${l.label}|${l.url}`).join('\n')}</textarea>
+        </div>
+        <div>
+          <label class="form-label">Column 4 Title (Contact)</label>
+          <input type="text" name="footer.col4Title" class="form-input" value={config.footer?.col4Title || 'Hubungi Kami'} />
+          <label class="form-label" style="margin-top:1rem;">Column 4 Text (Contact Info)</label>
+          <textarea name="footer.col4Text" class="form-input" rows="5">{config.footer?.col4Text}</textarea>
         </div>
       </div>
     </div>
@@ -142,7 +164,38 @@ const media = await MediaAsset.find().sort({ createdAt: -1 });
       form?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
+        const rawData = Object.fromEntries(formData);
+        
+        // Transform the flat form data into the nested structure expected by the API
+        const data = {
+          webName: rawData.webName,
+          logo: rawData.logo,
+          favicon: rawData.favicon,
+          vision: rawData.vision,
+          mission: rawData.mission,
+          whatsapp: rawData.whatsapp,
+          email: rawData.email,
+          instagram: rawData.instagram,
+          footer: {
+            col1Title: rawData['footer.col1Title'],
+            col1Links: rawData['footer.col1LinksRaw']?.split('\n').filter(l => l.includes('|')).map(l => {
+              const [label, url] = l.split('|');
+              return { label: label.trim(), url: url.trim() };
+            }) || [],
+            col2Title: rawData['footer.col2Title'],
+            col2Links: rawData['footer.col2LinksRaw']?.split('\n').filter(l => l.includes('|')).map(l => {
+              const [label, url] = l.split('|');
+              return { label: label.trim(), url: url.trim() };
+            }) || [],
+            col3Title: rawData['footer.col3Title'],
+            col3Links: rawData['footer.col3LinksRaw']?.split('\n').filter(l => l.includes('|')).map(l => {
+              const [label, url] = l.split('|');
+              return { label: label.trim(), url: url.trim() };
+            }) || [],
+            col4Title: rawData['footer.col4Title'],
+            col4Text: rawData['footer.col4Text']
+          }
+        };
 
         const res = await fetch('/api/config', {
           method: 'POST',

@@ -40,7 +40,17 @@ const WebConfigSchema = new mongoose.Schema({
   tiktok: String,
   navbar: [
     { label: String, url: String }
-  ]
+  ],
+  footer: {
+    col1Title: String,
+    col1Links: [{ label: String, url: String }],
+    col2Title: String,
+    col2Links: [{ label: String, url: String }],
+    col3Title: String,
+    col3Links: [{ label: String, url: String }],
+    col4Title: String,
+    col4Text: String // For contact info
+  }
 }, { timestamps: true, collection: 'webconfigs' });
 
 // Custom Page Schema (Page Builder)
