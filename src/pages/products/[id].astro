@@ -1,0 +1,261 @@
+---
+import dbConnect from '../../lib/db';
+import { Product, WebConfig } from '../../lib/models';
+import Header from '../../components/Header.astro';
+
+const { id } = Astro.params;
+
+await dbConnect();
+const product = await Product.findById(id);
+const config = await WebConfig.findOne();
+
+if (!product) {
+  return Astro.redirect('/');
+}
+
+const pageTitle = `${product.name} | ${config?.webName || 'Jayatama'}`;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{pageTitle}</title>
+  {config?.favicon && <link rel="icon" href={config.favicon} />}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --text-light: #64748b;
+      --border: #f1f5f9;
+      --radius: 24px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrapper {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .nav-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      color: var(--text-light);
+      font-weight: 600;
+      transition: 0.2s;
+    }
+
+    .back-btn:hover { color: var(--primary); }
+
+    .main-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.04);
+      border: 1px solid var(--border);
+      padding: 2.5rem;
+      overflow: hidden;
+    }
+
+    /* Grid for Top Section */
+    .top-section {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 4rem;
+      margin-bottom: 3.5rem;
+    }
+
+    @media (max-width: 968px) {
+      .top-section {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      .main-card { padding: 1.5rem; }
+    }
+
+    .main-image {
+      width: 300px;
+      height: 300px;
+      object-fit: cover;
+      border-radius: 20px;
+      background: #f1f5f9;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: #e0e7ff;
+      color: var(--primary);
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .product-name {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .product-price {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 2.5rem;
+    }
+
+    .order-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      background: #22c55e;
+      color: white;
+      padding: 1.25rem 2rem;
+      border-radius: 16px;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 1.125rem;
+      transition: 0.3s;
+      box-shadow: 0 10px 25px rgba(34, 197, 94, 0.3);
+      max-width: 400px;
+    }
+
+    @media (max-width: 640px) {
+      .order-btn { max-width: 100%; }
+    }
+
+    .order-btn:hover {
+      background: #16a34a;
+      transform: translateY(-3px);
+    }
+
+    /* Bottom Section Description */
+    .description-container {
+      border-top: 1px solid var(--border);
+      padding-top: 3rem;
+    }
+
+    .description-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+    }
+
+    .description-content {
+      color: #334155;
+      font-size: 1.05rem;
+      text-align: left; /* Normal Align */
+    }
+
+    .description-content h1, .description-content h2 { margin-top: 2rem; margin-bottom: 1rem; }
+    .description-content p { margin-bottom: 1.25rem; }
+    .description-content ul, .description-content ol { padding-left: 1.5rem; margin-bottom: 1.5rem; }
+    
+    .description-content img { 
+      max-width: 100%; 
+      width: auto;
+      max-height: 450px;
+      display: block;
+      margin: 2rem 0; /* Align left image */
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+
+    .meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 2.5rem;
+    }
+
+    .tag {
+      font-size: 0.75rem;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <Header />
+  <div class="wrapper">
+    <header class="nav-header">
+      <a href="javascript:history.back()" class="back-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Back
+      </a>
+      {config?.logo && <img src={config.logo} alt="Logo" style="height: 32px;" />}
+    </header>
+
+    <main class="main-card">
+      <!-- Row 1: Image & Basic Info Side by Side -->
+      <div class="top-section">
+        <div class="image-area">
+          <img class="main-image" src={product.image || 'https://placehold.co/600x600?text=Jayatama'} alt={product.name} />
+        </div>
+
+        <div class="info-area">
+          <div class="badge">Official Product</div>
+          <h1 class="product-name">{product.name}</h1>
+          <p class="product-price">Rp {product.price.toLocaleString('id-ID')}</p>
+
+          <a href={`https://wa.me/${config?.whatsapp}?text=Halo, saya ingin memesan produk: ${product.name}`} class="order-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Order via WhatsApp
+          </a>
+
+          {product.tags && product.tags.length > 0 && (
+            <div class="meta-tags">
+              {product.tags.map((tag: string) => <span class="tag">#{tag}</span>)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Row 2: Full Width Description below them -->
+      <div class="description-container">
+        <h3 class="description-title">Product Description</h3>
+        <div class="description-content" set:html={product.description}></div>
+      </div>
+    </main>
+
+    <footer style="margin-top: 3rem; padding-bottom: 2rem; text-align: center; color: var(--text-light); font-size: 0.875rem;">
+      &copy; {new Date().getFullYear()} {config?.webName || 'Jayatama'}. All rights reserved.
+    </footer>
+  </div>
+</body>
+</html>

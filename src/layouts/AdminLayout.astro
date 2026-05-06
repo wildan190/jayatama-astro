@@ -1,0 +1,140 @@
+---
+import '../styles/admin.css';
+import dbConnect from '../lib/db';
+import { WebConfig } from '../lib/models';
+
+interface Props {
+  title: string;
+  activeNav?: string;
+  subtitle?: string;
+}
+
+const { title, activeNav, subtitle } = Astro.props;
+
+await dbConnect();
+const config = await WebConfig.findOne();
+
+const navItems = [
+  { label: 'Dashboard', href: '/admin', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { label: 'Products', href: '/admin/products', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+  { label: 'Pages', href: '/admin/pages', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
+  { label: 'Navbar', href: '/admin/navbar', icon: 'M4 6h16M4 12h16M4 18h16' },
+  { label: 'Media', href: '/admin/media', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+  { label: 'Configuration', href: '/admin/config', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+];
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} | {config?.webName || 'Jayatama CMS'}</title>
+  {config?.favicon && <link rel="icon" href={config.favicon} />}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="admin-container">
+    <!-- Overlay for Mobile -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        {config?.logo ? (
+          <img src={config.logo} alt="Logo" style="height: 32px; width: auto; object-fit: contain; margin-right: 10px;" />
+        ) : (
+          <span style="color: var(--primary); margin-right: 10px;">J</span>
+        )}
+        {config?.webName || 'Jayatama'}
+      </div>
+      
+      <div class="sidebar-nav">
+        <div class="nav-group">
+          <p class="nav-label">Main Menu</p>
+          <ul class="nav-links">
+            {navItems.map((item) => (
+              <li>
+                <a 
+                  href={item.href} 
+                  class={`nav-link ${activeNav === item.label.toLowerCase() ? 'active' : ''}`}
+                >
+                  <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.icon}></path>
+                  </svg>
+                  <span>{item.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="btn btn-danger" style="width: 100%; gap: 1rem;">
+          <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-layout">
+      <header class="top-header">
+        <button class="menu-toggle" id="menuToggle">
+          <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        
+        <div class="header-right" style="display: flex; align-items: center; gap: 1rem;">
+          <div style="text-align: right; display: none; sm: block;">
+            <p style="font-weight: 600; font-size: 0.875rem;">Jayatama Admin</p>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Master Control</p>
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800;">
+            J
+          </div>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <div style="margin-bottom: 2.5rem;">
+          <h1 class="page-title">{title}</h1>
+          {subtitle && <p class="page-subtitle">{subtitle}</p>}
+        </div>
+        
+        <slot />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    menuToggle?.addEventListener('click', () => {
+      sidebar?.classList.toggle('open');
+      overlay?.classList.toggle('show');
+    });
+
+    overlay?.addEventListener('click', () => {
+      sidebar?.classList.remove('open');
+      overlay?.classList.remove('show');
+    });
+
+    logoutBtn?.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/admin/login';
+      }
+    });
+  </script>
+</body>
+</html>

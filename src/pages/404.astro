@@ -1,0 +1,174 @@
+---
+import Header from '../components/Header.astro';
+import dbConnect from '../lib/db';
+import { WebConfig } from '../lib/models';
+
+await dbConnect();
+const config = await WebConfig.findOne();
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - Blueprint Not Found | {config?.webName}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --bg: #0f172a;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg);
+      color: white;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .error-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    /* Architectural Grid Background */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 1;
+    }
+
+    .blueprint-line {
+      position: absolute;
+      background: var(--primary);
+      opacity: 0.3;
+      z-index: 1;
+      animation: drawLine 3s infinite ease-in-out;
+    }
+
+    @keyframes drawLine {
+      0% { transform: scaleX(0); }
+      50% { transform: scaleX(1); }
+      100% { transform: scaleX(0); transform-origin: right; }
+    }
+
+    .error-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15rem;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(to bottom, #6366f1, #312e81);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.3));
+      position: relative;
+      z-index: 10;
+    }
+
+    .error-msg {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-top: -1rem;
+      position: relative;
+      z-index: 10;
+      letter-spacing: 2px;
+    }
+
+    .error-desc {
+      color: #94a3b8;
+      max-width: 500px;
+      margin: 1.5rem 0 3rem;
+      font-size: 1.1rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    .btn-home {
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      padding: 1rem 2.5rem;
+      border-radius: 99px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      transition: 0.3s;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+      z-index: 10;
+    }
+
+    .btn-home:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(99, 102, 241, 0.6);
+      background: #4f46e5;
+    }
+
+    .coordinates {
+      position: absolute;
+      bottom: 2rem;
+      right: 2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--primary);
+      opacity: 0.5;
+      text-align: right;
+    }
+
+    @media (max-width: 768px) {
+      .error-code { font-size: 8rem; }
+      .error-msg { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <Header />
+  
+  <div class="error-container">
+    <div class="grid-bg"></div>
+    
+    <!-- Decorative Blueprint Lines -->
+    <div class="blueprint-line" style="top: 20%; left: 10%; width: 300px; height: 1px;"></div>
+    <div class="blueprint-line" style="top: 80%; right: 10%; width: 200px; height: 1px;"></div>
+    <div class="blueprint-line" style="top: 30%; right: 20%; width: 1px; height: 150px; animation-name: drawVertical;"></div>
+
+    <h1 class="error-code">404</h1>
+    <p class="error-msg">BLUEPRINT NOT FOUND</p>
+    <p class="error-desc">
+      The architectural foundation for this page is missing. 
+      It seems our project managers have misplaced the plans.
+    </p>
+
+    <a href="/" class="btn-home">Back to Foundation</a>
+
+    <div class="coordinates">
+      LAT: -6.2088 | LONG: 106.8456<br/>
+      SITE_STATUS: UNMAPPED_AREA
+    </div>
+  </div>
+
+  <style>
+    @keyframes drawVertical {
+      0% { transform: scaleY(0); }
+      50% { transform: scaleY(1); }
+      100% { transform: scaleY(0); transform-origin: bottom; }
+    }
+  </style>
+</body>
+</html>

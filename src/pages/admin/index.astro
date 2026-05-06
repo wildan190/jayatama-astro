@@ -1,0 +1,79 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import dbConnect from '../../lib/db';
+import { Product, MediaAsset } from '../../lib/models';
+
+await dbConnect();
+const productCount = await Product.countDocuments();
+const mediaCount = await MediaAsset.countDocuments();
+---
+
+<AdminLayout title="Dashboard" activeNav="dashboard" subtitle="Welcome back! Here's an overview of your store.">
+  <div class="stats-grid">
+    <!-- Products Stat -->
+    <div class="card stat-card">
+      <div class="stat-icon">
+        <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h3>Total Products</h3>
+        <p>{productCount}</p>
+      </div>
+    </div>
+
+    <!-- Media Stat -->
+    <div class="card stat-card">
+      <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+        <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h3>Media Assets</h3>
+        <p>{mediaCount}</p>
+      </div>
+    </div>
+
+    <!-- Storage Info (Placeholder for creative touch) -->
+    <div class="card stat-card">
+      <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+        <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h3>System Status</h3>
+        <p>Healthy</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h2 style="font-size: 1.25rem;">Quick Management</h2>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+      <a href="/admin/products/new" class="btn btn-primary" style="padding: 1.5rem; flex-direction: column; text-align: center;">
+        <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Add New Product</span>
+      </a>
+      <a href="/admin/media" class="btn" style="padding: 1.5rem; flex-direction: column; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);">
+        <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+        </svg>
+        <span>Upload Media</span>
+      </a>
+      <a href="/admin/config" class="btn" style="padding: 1.5rem; flex-direction: column; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);">
+        <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Site Settings</span>
+      </a>
+    </div>
+  </div>
+</AdminLayout>

@@ -1,0 +1,213 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import dbConnect from '../../../../lib/db';
+import { Product, MediaAsset } from '../../../../lib/models';
+
+const { id } = Astro.params;
+
+await dbConnect();
+const product = await Product.findById(id);
+const media = await MediaAsset.find().sort({ createdAt: -1 });
+
+if (!product) {
+  return Astro.redirect('/admin/products');
+}
+---
+
+<AdminLayout title="Edit Product" activeNav="products">
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  
+  <form id="productForm" class="card">
+    <div class="form-group">
+      <label class="form-label">Product Name</label>
+      <input type="text" name="name" class="form-input" required value={product.name} />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Price (Rupiah)</label>
+      <input type="number" name="price" class="form-input" required value={product.price} />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Discount Percentage (%)</label>
+      <input type="number" name="discountPercentage" class="form-input" value={product.discountPercentage || 0} min="0" max="100" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Product Image</label>
+      <div style="display: flex; gap: 1rem; align-items: flex-start;">
+        <img id="previewImage" src={product.image || 'https://placehold.co/400x400?text=No+Image'} style="width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border);" />
+        <button type="button" id="selectImageBtn" class="btn btn-primary">Select from Media</button>
+        <input type="hidden" name="image" id="imageUrl" value={product.image} />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <div id="editor" style="height: 500px; background: white; color: black; border-radius: 0 0 var(--radius-sm) var(--radius-sm);"></div>
+      <input type="hidden" name="description" id="descriptionInput" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Keywords (comma separated)</label>
+      <input type="text" name="keywords" class="form-input" value={product.keywords.join(', ')} />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags (comma separated)</label>
+      <input type="text" name="tags" class="form-input" value={product.tags.join(', ')} />
+    </div>
+
+    <div style="display: flex; gap: 1rem;">
+      <button type="submit" class="btn btn-primary">Update Product</button>
+      <a href="/admin/products" class="btn" style="background: var(--text-muted); color: white;">Cancel</a>
+    </div>
+  </form>
+
+  <div id="mediaModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;">
+        <h2>Select Image</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="file" id="modalFileInput" accept="image/*" style="display: none;" />
+          <button type="button" id="modalUploadBtn" class="btn" style="background: var(--primary-light); color: var(--primary);">Upload New</button>
+          <button type="button" id="closeModal" class="btn btn-danger">Close</button>
+        </div>
+      </div>
+      <div class="media-grid">
+        {media.map((item: any) => (
+          <div class="media-item select-media-item" data-url={item.data}>
+            <img src={item.data} alt={item.name} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js" is:inline></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill-image-resize-module@3.0.0/image-resize.min.js" is:inline></script>
+  <script is:inline define:vars={{ initialDescription: product.description, productId: id }}>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Register ImageResize
+      if (typeof Quill !== 'undefined' && typeof ImageResize !== 'undefined') {
+        Quill.register('modules/imageResize', ImageResize.default);
+
+        const quill = new Quill('#editor', {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              [{ 'header': [1, 2, false] }],
+              ['bold', 'italic', 'underline'],
+              ['link', 'image', 'code-block'],
+              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+              ['clean']
+            ],
+            imageResize: {
+              displaySize: true
+            }
+          }
+        });
+
+        // Set initial content
+        quill.root.innerHTML = initialDescription || '';
+
+        // Media Selector
+        const modal = document.getElementById('mediaModal');
+        const selectBtn = document.getElementById('selectImageBtn');
+        const closeBtn = document.getElementById('closeModal');
+        const previewImg = document.getElementById('previewImage');
+        const imageUrlInput = document.getElementById('imageUrl');
+
+        selectBtn?.addEventListener('click', () => { if (modal) modal.style.display = 'flex'; });
+        closeBtn?.addEventListener('click', () => { if (modal) modal.style.display = 'none'; });
+
+        document.querySelectorAll('.select-media-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const url = item.dataset.url;
+            if (previewImg) previewImg.src = url;
+            if (imageUrlInput) imageUrlInput.value = url;
+            if (modal) modal.style.display = 'none';
+          });
+        });
+
+        // Modal Upload Logic
+        const modalUploadBtn = document.getElementById('modalUploadBtn');
+        const modalFileInput = document.getElementById('modalFileInput');
+        const modalMediaGrid = modal.querySelector('.media-grid');
+
+        modalUploadBtn?.addEventListener('click', () => modalFileInput?.click());
+
+        modalFileInput?.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          if (file.size > 512000) {
+            alert('File too large (max 500kb)');
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64Data = reader.result;
+            const res = await fetch('/api/media', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: file.name,
+                data: base64Data,
+                mimeType: file.type,
+                size: file.size
+              })
+            });
+
+            if (res.ok) {
+              const newMedia = await res.json();
+              // Add to grid
+              const div = document.createElement('div');
+              div.className = 'media-item select-media-item';
+              div.dataset.url = newMedia.data;
+              div.innerHTML = `<img src="${newMedia.data}" alt="${newMedia.name}" />`;
+              div.addEventListener('click', () => {
+                if (previewImg) previewImg.src = newMedia.data;
+                if (imageUrlInput) imageUrlInput.value = newMedia.data;
+                modal.style.display = 'none';
+              });
+              modalMediaGrid?.prepend(div);
+              
+              // Auto select
+              if (previewImg) previewImg.src = newMedia.data;
+              if (imageUrlInput) imageUrlInput.value = newMedia.data;
+              modal.style.display = 'none';
+            } else {
+              alert('Upload failed');
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+
+        const form = document.getElementById('productForm');
+        form?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(form);
+          const data = Object.fromEntries(formData);
+          
+          data.description = quill.root.innerHTML;
+          data.keywords = (data.keywords || '').split(',').map(s => s.trim()).filter(s => s);
+          data.tags = (data.tags || '').split(',').map(s => s.trim()).filter(s => s);
+
+          const res = await fetch(`/api/products/${productId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+
+          if (res.ok) {
+            window.location.href = '/admin/products';
+          } else {
+            alert('Failed to update product');
+          }
+        });
+      }
+    });
+  </script>
+</AdminLayout>

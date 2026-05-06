@@ -1,0 +1,644 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import dbConnect from '../../../lib/db';
+import { MediaAsset, Product } from '../../../lib/models';
+
+await dbConnect();
+const media = await MediaAsset.find().sort({ createdAt: -1 });
+const allProducts = await Product.find().sort({ name: 1 });
+---
+
+<AdminLayout title="Create New Page" activeNav="pages" subtitle="Build custom pages with flexible blocks.">
+  <form id="pageBuilderForm">
+    <!-- General Settings Card -->
+    <div class="card">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div class="form-group">
+          <label class="form-label">Page Title</label>
+          <input type="text" name="title" id="pageTitle" class="form-input" placeholder="e.g. About Us" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL Slug (leave empty to auto-generate)</label>
+          <input type="text" name="slug" id="pageSlug" class="form-input" placeholder="e.g. about-us" />
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem; background: var(--primary-light); padding: 1rem; border-radius: 12px; color: var(--primary);">
+        <input type="checkbox" id="isHome" style="width: 20px; height: 20px;" />
+        <label for="isHome" style="font-weight: 700; cursor: pointer;">Assign as Home Page (Main Landing Page)</label>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+        <div class="form-group">
+          <label class="form-label">SEO Description</label>
+          <textarea name="seoDescription" class="form-input" rows="2" placeholder="Brief summary for Google search results..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SEO Keywords (separate with commas)</label>
+          <textarea name="seoKeywords" class="form-input" rows="2" placeholder="jayatama, contractor, architecture..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocks Area -->
+    <div id="blocksContainer">
+      <!-- Blocks will be injected here -->
+    </div>
+
+    <!-- Add Block Buttons -->
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem; background: #f1f5f9; padding: 1.5rem; border-radius: 16px; border: 2px dashed var(--border);">
+      <button type="button" class="btn add-block-btn" data-type="hero" style="background: white; border: 1px solid var(--border);">+ Add Hero</button>
+      <button type="button" class="btn add-block-btn" data-type="richText" style="background: white; border: 1px solid var(--border);">+ Add Content</button>
+      <button type="button" class="btn add-block-btn" data-type="split" style="background: white; border: 1px solid var(--border);">+ Add Split View</button>
+      <button type="button" class="btn add-block-btn" data-type="faq" style="background: white; border: 1px solid var(--border);">+ Add FAQ</button>
+      <button type="button" class="btn add-block-btn" data-type="cta" style="background: white; border: 1px solid var(--border);">+ Add CTA</button>
+      <button type="button" class="btn add-block-btn" data-type="productList" style="background: #ecfdf5; border: 1px solid #10b981; color: #065f46;">+ Add Product List</button>
+      <button type="button" class="btn add-block-btn" data-type="clients" style="background: white; border: 1px solid var(--border);">+ Add Our Clients</button>
+      <button type="button" class="btn add-block-btn" data-type="contactForm" style="background: #fdf2f2; border: 1px solid #ef4444; color: #991b1b;">+ Add Contact Form</button>
+    </div>
+
+    <div style="position: sticky; bottom: 2rem; display: flex; gap: 1rem; background: var(--bg-card); padding: 1rem; border-radius: var(--radius); box-shadow: var(--shadow); z-index: 100;">
+      <button type="button" id="previewBtn" class="btn" style="background: var(--primary-light); color: var(--primary); font-weight: 700;">
+        <svg style="width: 20px; height: 20px; margin-right: 5px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+        Live Preview
+      </button>
+      <button type="button" id="saveDraftBtn" class="btn" style="flex: 1; background: #94a3b8; color: white;">Save as Draft</button>
+      <button type="submit" class="btn btn-primary" style="flex: 1;">Publish Page</button>
+      <a href="/admin/pages" class="btn" style="background: var(--text-muted); color: white;">Cancel</a>
+    </div>
+  </form>
+
+  <!-- Media Selector Modal (Shared) -->
+  <div id="mediaModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2>Select Media</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="file" id="modalFileInput" accept="image/*" style="display: none;" />
+          <button type="button" id="modalUploadBtn" class="btn" style="background: var(--primary-light); color: var(--primary);">Upload New</button>
+          <button type="button" id="closeModal" class="btn btn-danger">Close</button>
+        </div>
+      </div>
+      <div class="media-grid">
+        {media.map((item: any) => (
+          <div class="media-item select-media-item" data-url={item.data}>
+            <img src={item.data} alt={item.name} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div id="previewModal" class="modal" style="display: none; padding: 2rem;">
+    <div class="modal-content" style="max-width: 1200px; width: 100%; height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Live Preview</h2>
+        <button type="button" id="closePreview" class="btn btn-danger">Close Preview</button>
+      </div>
+      <div id="previewIframe" style="flex: 1; border: 1px solid var(--border); border-radius: 12px; overflow-y: auto; background: white;">
+        <!-- Rendered Content Here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js" is:inline></script>
+  <script is:inline define:vars={{ allProducts }}>
+    document.addEventListener('DOMContentLoaded', () => {
+      const blocksContainer = document.getElementById('blocksContainer');
+      const addBlockBtns = document.querySelectorAll('.add-block-btn');
+      const modal = document.getElementById('mediaModal');
+      const closeBtn = document.getElementById('closeModal');
+      let currentImageTarget = null;
+      let blockCount = 0;
+
+      // Block Templates
+      const templates = {
+        hero: (id) => `
+          <div class="card block-card" data-type="hero" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">HERO BLOCK</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div class="block-grid-layout">
+              <div class="image-selector-area">
+                <img class="img-preview" src="https://placehold.co/600x400?text=Hero+BG" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:12px; cursor:pointer;" />
+                <input type="hidden" class="block-image-data" />
+                <p style="font-size:0.75rem; text-align:center; color:var(--text-muted); margin-top:0.5rem">Click to change background</p>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="text" class="form-input block-title" placeholder="Hero Title" />
+                <textarea class="form-input block-subtitle" placeholder="Hero Subtitle"></textarea>
+                <div style="display: flex; gap: 1rem;">
+                  <input type="text" class="form-input block-btn-label" placeholder="Button Label" />
+                  <input type="text" class="form-input block-btn-url" placeholder="Button URL" />
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        richText: (id) => `
+          <div class="card block-card" data-type="richText" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">CONTENT BLOCK</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div id="editor-${id}" style="height: 300px; background:white;"></div>
+          </div>
+        `,
+        split: (id) => `
+          <div class="card block-card" data-type="split" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">SPLIT SECTION</h4>
+              <select class="form-input split-layout" style="width:auto; padding: 0.2rem 1rem;">
+                <option value="left">Image Left</option>
+                <option value="right">Image Right</option>
+              </select>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div class="block-grid-layout">
+              <div class="image-selector-area">
+                <img class="img-preview" src="https://placehold.co/500x500?text=Split+Image" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:12px; cursor:pointer;" />
+                <input type="hidden" class="block-image-data" />
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="text" class="form-input block-title" placeholder="Section Title" />
+                <div id="split-editor-${id}" style="height: 200px; background:white;"></div>
+              </div>
+            </div>
+          </div>
+        `,
+        faq: (id) => `
+          <div class="card block-card" data-type="faq" id="block-${id}">
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">FAQ SECTION</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div class="faq-items-container" style="display: flex; flex-direction: column; gap: 1rem;">
+               <div class="faq-item" style="border: 1px solid var(--border); padding: 1rem; border-radius: 12px;">
+                 <input type="text" class="form-input faq-q" placeholder="Question" style="margin-bottom:0.5rem" />
+                 <textarea class="form-input faq-a" placeholder="Answer"></textarea>
+               </div>
+            </div>
+            <button type="button" class="btn btn-sm add-faq-item" style="margin-top:1rem; background: var(--bg-main);">+ Add FAQ Item</button>
+          </div>
+        `,
+        cta: (id) => `
+          <div class="card block-card" data-type="cta" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">CALL TO ACTION</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center; text-align: center;">
+               <input type="text" class="form-input block-title" placeholder="CTA Title" style="text-align: center; font-size: 1.5rem; font-weight: 800;" />
+               <input type="text" class="form-input block-btn-label" placeholder="Button Label" style="width: auto;" />
+               <input type="text" class="form-input block-btn-url" placeholder="Button Link" style="width: auto;" />
+            </div>
+          </div>
+        `,
+        productList: (id) => `
+          <div class="card block-card" data-type="productList" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">PRODUCT SHOWCASE</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Select Products to Display</label>
+              <div class="product-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; max-height: 300px; overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 12px;">
+                ${allProducts.map(p => `
+                  <label style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer;">
+                    <input type="checkbox" class="product-checkbox" value="${p._id}" />
+                    <span style="font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `,
+        clients: (id) => `
+          <div class="card block-card" data-type="clients" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">OUR CLIENTS</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div class="clients-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem;">
+               <!-- Client items here -->
+            </div>
+            <button type="button" class="btn btn-sm add-client-item" style="margin-top:1.5rem; background: var(--primary-light); color: var(--primary);">+ Add Client Logo</button>
+          </div>
+        `,
+        contactForm: (id) => `
+          <div class="card block-card" data-type="contactForm" id="block-${id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <h4 style="margin:0">CONTACT FORM (WHATSAPP)</h4>
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-sm move-up" style="background: var(--bg-main); color: var(--text-main);">↑</button>
+                <button type="button" class="btn btn-sm move-down" style="background: var(--bg-main); color: var(--text-main);">↓</button>
+                <button type="button" class="btn btn-danger btn-sm remove-block">Delete</button>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+               <input type="text" class="form-input block-title" placeholder="Form Title (e.g. Get in Touch)" />
+               <textarea class="form-input block-subtitle" placeholder="Form Subtitle/Description"></textarea>
+               <input type="text" class="form-input block-btn-label" placeholder="Button Text (e.g. Send to WhatsApp)" />
+            </div>
+          </div>
+        `
+      };
+
+      // Add Block Event
+      addBlockBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.dataset.type;
+          const id = blockCount++;
+          const div = document.createElement('div');
+          div.innerHTML = templates[type](id);
+          blocksContainer.appendChild(div.firstElementChild);
+
+          // Initialize Quill for richText
+          if (type === 'richText') {
+            new Quill(`#editor-${id}`, { theme: 'snow' });
+          } else if (type === 'split') {
+            new Quill(`#split-editor-${id}`, { theme: 'snow' });
+          }
+        });
+      });
+
+      // Handle Block Actions (Delete, Image Select, FAQ Add)
+      blocksContainer.addEventListener('click', (e) => {
+        const target = e.target;
+        
+        // Remove Block
+        if (target.classList.contains('remove-block')) {
+          target.closest('.block-card').remove();
+        }
+
+        // Reorder Blocks
+        if (target.classList.contains('move-up')) {
+          const card = target.closest('.block-card');
+          const prev = card.previousElementSibling;
+          if (prev) {
+            blocksContainer.insertBefore(card, prev);
+          }
+        }
+        if (target.classList.contains('move-down')) {
+          const card = target.closest('.block-card');
+          const next = card.nextElementSibling;
+          if (next) {
+            blocksContainer.insertBefore(next, card);
+          }
+        }
+
+        // Image Selector
+        if (target.classList.contains('img-preview')) {
+          currentImageTarget = target;
+          modal.style.display = 'flex';
+        }
+
+        // Add FAQ Item
+        if (target.classList.contains('add-faq-item')) {
+          const container = target.closest('.block-card').querySelector('.faq-items-container');
+          const item = document.createElement('div');
+          item.className = 'faq-item';
+          item.style = "border: 1px solid var(--border); padding: 1rem; border-radius: 12px; margin-top: 1rem;";
+          item.innerHTML = `
+            <input type="text" class="form-input faq-q" placeholder="Question" style="margin-bottom:0.5rem" />
+            <textarea class="form-input faq-a" placeholder="Answer"></textarea>
+            <button type="button" class="btn btn-sm btn-danger remove-faq-item" style="margin-top:0.5rem">Remove</button>
+          `;
+          container.appendChild(item);
+        }
+
+        // Add Client Item
+        if (target.classList.contains('add-client-item')) {
+          const container = target.closest('.block-card').querySelector('.clients-container');
+          const item = document.createElement('div');
+          item.className = 'client-item';
+          item.style = "position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 0.5rem;";
+          item.innerHTML = `
+            <div class="image-selector-area">
+              <img class="img-preview" src="https://placehold.co/200x100?text=Logo" style="width:100%; aspect-ratio:2/1; object-fit:contain; cursor:pointer;" />
+              <input type="hidden" class="block-image-data" />
+            </div>
+            <button type="button" class="btn btn-sm btn-danger remove-client-item" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;">×</button>
+          `;
+          container.appendChild(item);
+        }
+
+        // Remove Client Item
+        if (target.classList.contains('remove-client-item')) {
+          target.closest('.client-item').remove();
+        }
+
+        // Remove FAQ Item
+        if (target.classList.contains('remove-faq-item')) {
+          target.closest('.faq-item').remove();
+        }
+      });
+
+      // Media Selection logic
+      document.querySelectorAll('.select-media-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const url = item.dataset.url;
+          if (currentImageTarget) {
+            currentImageTarget.src = url;
+            currentImageTarget.nextElementSibling.value = url;
+          }
+          modal.style.display = 'none';
+        });
+      });
+
+      closeBtn.addEventListener('click', () => modal.style.display = 'none');
+
+      // Form Submission
+      const form = document.getElementById('pageBuilderForm');
+      const saveDraftBtn = document.getElementById('saveDraftBtn');
+      const previewBtn = document.getElementById('previewBtn');
+      const previewModal = document.getElementById('previewModal');
+      const previewIframe = document.getElementById('previewIframe');
+      const closePreview = document.getElementById('closePreview');
+
+      const collectBlocks = () => {
+        const blocks = [];
+        document.querySelectorAll('.block-card').forEach(block => {
+          const type = block.dataset.type;
+          let data = {};
+
+          if (type === 'hero') {
+            data = {
+              title: block.querySelector('.block-title').value,
+              subtitle: block.querySelector('.block-subtitle').value,
+              bgImage: block.querySelector('.block-image-data').value,
+              btnLabel: block.querySelector('.block-btn-label').value,
+              btnUrl: block.querySelector('.block-btn-url').value
+            };
+          } else if (type === 'richText') {
+            data = { html: block.querySelector('.ql-editor').innerHTML };
+          } else if (type === 'split') {
+            data = {
+              layout: block.querySelector('.split-layout').value,
+              image: block.querySelector('.block-image-data').value,
+              title: block.querySelector('.block-title').value,
+              text: block.querySelector('.ql-editor').innerHTML
+            };
+          } else if (type === 'faq') {
+            const items = [];
+            block.querySelectorAll('.faq-item').forEach(item => {
+              items.push({
+                q: item.querySelector('.faq-q').value,
+                a: item.querySelector('.faq-a').value
+              });
+            });
+            data = { items };
+          } else if (type === 'cta') {
+            data = {
+              title: block.querySelector('.block-title').value,
+              btnLabel: block.querySelector('.block-btn-label').value,
+              btnUrl: block.querySelector('.block-btn-url').value
+            };
+          } else if (type === 'productList') {
+            const productIds = [];
+            block.querySelectorAll('.product-checkbox:checked').forEach(cb => {
+              productIds.push(cb.value);
+            });
+            data = { productIds };
+          } else if (type === 'clients') {
+            const items = [];
+            block.querySelectorAll('.client-item').forEach(item => {
+              items.push({
+                image: item.querySelector('.block-image-data').value
+              });
+            });
+            data = { items };
+          } else if (type === 'contactForm') {
+            data = {
+              title: block.querySelector('.block-title').value,
+              subtitle: block.querySelector('.block-subtitle').value,
+              btnLabel: block.querySelector('.block-btn-label').value
+            };
+          }
+          blocks.push({ type, data });
+        });
+        return blocks;
+      };
+
+      const renderPreview = () => {
+        const blocks = collectBlocks();
+        let html = `
+          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;800&display=swap" rel="stylesheet">
+          <style>
+            body { font-family: 'Outfit', sans-serif; margin: 0; padding: 0; color: #0f172a; line-height: 1.6; }
+            .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+            .hero { position: relative; min-height: 400px; display: flex; align-items: center; color: white; background-size: cover; background-position: center; }
+            .hero-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+            .hero-content { position: relative; z-index: 10; padding: 4rem 0; }
+            .split-section { padding: 4rem 0; }
+            .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+            .btn-cta { background: #6366f1; color: white; padding: 1rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 800; display: inline-block; margin-top: 1rem; }
+            .faq-item { border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 16px; margin-bottom: 1rem; }
+            .faq-q { font-weight: 800; color: #6366f1; margin-bottom: 0.5rem; }
+            img { max-width: 100%; border-radius: 12px; }
+          </style>
+        `;
+
+        blocks.forEach(block => {
+          if (block.type === 'hero') {
+            html += `
+              <section class="hero" style="background-image: url(${block.data.bgImage || 'https://placehold.co/1200x600?text=Hero'})">
+                <div class="hero-overlay"></div>
+                <div class="container"><div class="hero-content">
+                  <h1 style="font-size: 3rem; margin-bottom:1rem;">${block.data.title || 'Hero Title'}</h1>
+                  <p>${block.data.subtitle || 'Subheading goes here'}</p>
+                </div></div>
+              </section>
+            `;
+          } else if (block.type === 'richText') {
+            html += `<section class="container" style="padding:4rem 0;">${block.data.html}</section>`;
+          } else if (block.type === 'split') {
+            const rowDir = block.data.layout === 'right' ? 'direction: rtl;' : '';
+            html += `
+              <section class="split-section"><div class="container"><div class="split-grid" style="${rowDir}">
+                <div style="direction: ltr"><img src="${block.data.image || 'https://placehold.co/600x600'}" /></div>
+                <div style="direction: ltr">
+                  <h2 style="font-size: 2rem;">${block.data.title || 'Section Title'}</h2>
+                  <div>${block.data.text || 'Section description...'}</div>
+                </div>
+              </div></div></section>
+            `;
+          } else if (block.type === 'faq') {
+             html += `<section class="container" style="padding:4rem 0;"><h2 style="text-align:center; margin-bottom:2rem;">FAQ</h2>`;
+             block.data.items?.forEach(i => {
+               html += `<div class="faq-item"><div class="faq-q">${i.q}</div><div>${i.a}</div></div>`;
+             });
+             html += `</section>`;
+          } else if (block.type === 'cta') {
+            html += `
+              <section style="background:#6366f1; color:white; padding:4rem 0; text-align:center;">
+                <div class="container">
+                  <h2 style="font-size: 2.5rem; margin-bottom:1rem;">${block.data.title || 'CTA Title'}</h2>
+                  <span class="btn-cta" style="background:white; color:#6366f1;">${block.data.btnLabel || 'Action'}</span>
+                </div>
+              </section>
+            `;
+          } else if (block.type === 'productList') {
+            html += `<section class="container" style="padding:4rem 0;"><div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1.5rem;">`;
+            
+            if (block.data.productIds && block.data.productIds.length > 0) {
+              block.data.productIds.forEach(id => {
+                const p = allProducts.find(item => item._id.toString() === id);
+                if (p) {
+                  const hasDiscount = p.discountPercentage > 0;
+                  const discountedPrice = hasDiscount ? p.price * (1 - p.discountPercentage / 100) : p.price;
+                  html += `
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:white; position:relative;">
+                      ${hasDiscount ? `<div style="position:absolute; top:8px; right:8px; background:#ef4444; color:white; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:800;">${p.discountPercentage}% OFF</div>` : ''}
+                      <img src="${p.image || 'https://placehold.co/200x200'}" style="width:100%; aspect-ratio:1; object-fit:cover;" />
+                      <div style="padding:1rem;">
+                        <div style="font-weight:800; font-size:0.9rem; margin-bottom:0.4rem;">${p.name}</div>
+                        <div style="color:#6366f1; font-weight:800; font-size:1rem;">Rp ${discountedPrice.toLocaleString('id-ID')}</div>
+                        ${hasDiscount ? `<div style="color:#94a3b8; text-decoration:line-through; font-size:0.75rem;">Rp ${p.price.toLocaleString('id-ID')}</div>` : ''}
+                      </div>
+                    </div>
+                  `;
+                }
+              });
+            } else {
+              html += `<p style="grid-column:1/-1; text-align:center; color:#94a3b8;">No products selected</p>`;
+            }
+            html += `</div></section>`;
+          } else if (block.type === 'clients') {
+            html += `<section class="container" style="padding:4rem 0;"><div style="display:flex; flex-wrap:wrap; gap:2rem; justify-content:center; align-items:center; opacity:0.6;">`;
+            block.data.items?.forEach(i => {
+              html += `<img src="${i.image || 'https://placehold.co/150x50?text=Logo'}" style="height:40px; filter:grayscale(100%);" />`;
+            });
+            html += `</div></section>`;
+          } else if (block.type === 'contactForm') {
+            html += `
+              <section class="container" style="padding:4rem 0; text-align:center;">
+                <div style="max-width:600px; margin:0 auto; padding:2rem; border:1px solid #e2e8f0; border-radius:24px;">
+                  <h2>${block.data.title || 'Contact Us'}</h2>
+                  <p style="margin-bottom:2rem; color:#64748b;">${block.data.subtitle || 'Send us a message via WhatsApp'}</p>
+                  <div style="text-align:left;">
+                    <div style="margin-bottom:1rem;"><label style="display:block; font-weight:700; font-size:0.8rem; margin-bottom:5px;">Name</label><div style="width:100%; height:40px; border:1px solid #e2e8f0; border-radius:8px;"></div></div>
+                    <div style="margin-bottom:1rem;"><label style="display:block; font-weight:700; font-size:0.8rem; margin-bottom:5px;">Message</label><div style="width:100%; height:80px; border:1px solid #e2e8f0; border-radius:8px;"></div></div>
+                  </div>
+                  <button style="width:100%; padding:1rem; background:#25d366; color:white; border:none; border-radius:12px; font-weight:800; margin-top:1rem;">${block.data.btnLabel || 'Send WhatsApp'}</button>
+                </div>
+              </section>
+            `;
+          }
+        });
+
+        previewIframe.innerHTML = html;
+        previewModal.style.display = 'flex';
+      };
+
+      previewBtn.addEventListener('click', renderPreview);
+      closePreview.addEventListener('click', () => previewModal.style.display = 'none');
+
+      const submitPage = async (status = 'published') => {
+        const formData = new FormData(form);
+        const blocks = collectBlocks();
+
+        const pageData = {
+          title: formData.get('title'),
+          slug: formData.get('slug') || formData.get('title').toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, ''),
+          isHome: document.getElementById('isHome').checked,
+          status: status,
+          blocks: blocks,
+          seo: {
+            title: formData.get('title'),
+            description: formData.get('seoDescription'),
+            keywords: formData.get('seoKeywords')?.split(',').map(k => k.trim()).filter(k => k !== '')
+          }
+        };
+
+        const res = await fetch('/api/pages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pageData)
+        });
+
+        if (res.ok) {
+          window.location.href = '/admin/pages';
+        } else {
+          alert('Failed to save page');
+        }
+      };
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitPage('published');
+      });
+
+      saveDraftBtn.addEventListener('click', () => {
+        const title = document.getElementById('pageTitle').value;
+        if (!title) {
+          alert('Please enter a page title first');
+          return;
+        }
+        submitPage('draft');
+      });
+    });
+  </script>
+
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style is:global>
+    .block-card { 
+      border-left: 5px solid var(--primary); 
+      margin-bottom: 2rem;
+    }
+    .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; }
+    
+    /* Responsive Grid for Blocks */
+    .block-grid-layout {
+      display: grid; 
+      grid-template-columns: 200px 1fr; 
+      gap: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .block-grid-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .modal-content {
+        width: 95% !important;
+        padding: 1rem !important;
+      }
+      h1 { font-size: 1.5rem !important; }
+    }
+
+    /* Prevent horizontal scroll */
+    body { overflow-x: hidden; }
+    .wrapper { max-width: 100%; overflow-x: hidden; }
+  </style>
+</AdminLayout>

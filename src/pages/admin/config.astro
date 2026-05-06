@@ -1,0 +1,159 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import dbConnect from '../../lib/db';
+import { WebConfig, MediaAsset } from '../../lib/models';
+
+await dbConnect();
+let config = await WebConfig.findOne();
+if (!config) {
+  config = await WebConfig.create({ webName: 'Jayatama' });
+}
+const media = await MediaAsset.find().sort({ createdAt: -1 });
+---
+
+<AdminLayout title="Web Configuration" activeNav="configuration">
+  <form id="configForm" class="card">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+      <div>
+        <h3>General Settings</h3>
+        <div class="form-group">
+          <label class="form-label">Web Name</label>
+          <input type="text" name="webName" class="form-input" value={config.webName} required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Logo</label>
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <img id="logoPreview" src={config.logo || 'https://placehold.co/200x200?text=Logo'} style="width: 80px; height: 80px; object-fit: contain; background: #eee; border-radius: 4px;" />
+            <button type="button" class="btn btn-primary select-media-btn" data-target="logo">Change Logo</button>
+            <input type="hidden" name="logo" id="logoInput" value={config.logo} />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Favicon</label>
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <img id="faviconPreview" src={config.favicon || 'https://placehold.co/64x64?text=Fav'} style="width: 32px; height: 32px; object-fit: contain; background: #eee; border-radius: 4px;" />
+            <button type="button" class="btn btn-primary select-media-btn" data-target="favicon">Change Favicon</button>
+            <input type="hidden" name="favicon" id="faviconInput" value={config.favicon} />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Vision</label>
+          <textarea name="vision" class="form-input" rows="3">{config.vision}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mission</label>
+          <textarea name="mission" class="form-input" rows="3">{config.mission}</textarea>
+        </div>
+      </div>
+
+      <div>
+        <h3>Contact & Social Media</h3>
+        <div class="form-group">
+          <label class="form-label">WhatsApp</label>
+          <input type="text" name="whatsapp" class="form-input" value={config.whatsapp} />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input" value={config.email} />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Instagram</label>
+          <input type="text" name="instagram" class="form-input" value={config.instagram} />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Facebook</label>
+          <input type="text" name="facebook" class="form-input" value={config.facebook} />
+        </div>
+        <div class="form-group">
+          <label class="form-label">TikTok</label>
+          <input type="text" name="tiktok" class="form-input" value={config.tiktok} />
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 2rem;">
+      <button type="submit" class="btn btn-primary">Save Configuration</button>
+    </div>
+  </form>
+
+  <!-- Media Selector Modal -->
+  <div id="mediaModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;">
+        <h2>Select Asset</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="file" id="modalFileInput" accept="image/*" style="display: none;" />
+          <button type="button" id="modalUploadBtn" class="btn" style="background: var(--primary-light); color: var(--primary);">Upload New</button>
+          <button type="button" id="closeModal" class="btn btn-danger">Close</button>
+        </div>
+      </div>
+      <div class="media-grid">
+        {media.map((item: any) => (
+          <div class="media-item select-media-item" data-url={item.data}>
+            <img src={item.data} alt={item.name} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      let activeTarget = '';
+      const modal = document.getElementById('mediaModal');
+      const closeBtn = document.getElementById('closeModal');
+
+      document.querySelectorAll('.select-media-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeTarget = btn.dataset.target || '';
+          if (modal) modal.style.display = 'flex';
+        });
+      });
+
+      closeBtn?.addEventListener('click', () => {
+        if (modal) modal.style.display = 'none';
+      });
+
+      document.querySelectorAll('.select-media-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const url = item.dataset.url || '';
+          if (activeTarget === 'logo') {
+            const preview = document.getElementById('logoPreview');
+            const input = document.getElementById('logoInput');
+            if (preview) preview.src = url;
+            if (input) input.value = url;
+          } else if (activeTarget === 'favicon') {
+            const preview = document.getElementById('faviconPreview');
+            const input = document.getElementById('faviconInput');
+            if (preview) preview.src = url;
+            if (input) input.value = url;
+          }
+          if (modal) modal.style.display = 'none';
+        });
+      });
+
+      const form = document.getElementById('configForm');
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          alert('Configuration saved successfully!');
+        } else {
+          alert('Failed to save configuration');
+        }
+      });
+    });
+  </script>
+</AdminLayout>

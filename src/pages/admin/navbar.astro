@@ -1,0 +1,270 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import dbConnect from '../../lib/db';
+import { WebConfig, CustomPage } from '../../lib/models';
+
+await dbConnect();
+const config = await WebConfig.findOne();
+const pages = await CustomPage.find({ status: 'published' });
+
+const existingNavbar = config?.navbar || [];
+---
+
+<AdminLayout title="Navbar Manager" activeNav="navbar" subtitle="Organize your website's main navigation structure.">
+  <div class="builder-container">
+    <div class="builder-header">
+      <div>
+        <h2 style="font-weight: 800; letter-spacing: -0.02em;">Menu Structure</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Drag and organize your site links.</p>
+      </div>
+      <button type="button" id="addNavItem" class="add-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add Item
+      </button>
+    </div>
+
+    <form id="navbarForm">
+      <div class="list-header">
+        <div style="width: 40px;"></div>
+        <div style="flex: 1;">Label</div>
+        <div style="flex: 2;">Destination</div>
+        <div style="width: 50px;"></div>
+      </div>
+
+      <div id="navItemsContainer" class="nav-list">
+        {existingNavbar.map((item: any) => (
+          <div class="nav-row">
+            <div class="handle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+            </div>
+            
+            <div class="input-cell" style="flex: 1;">
+              <input type="text" class="nav-label ghost-input" placeholder="e.g. Services" value={item.label} required />
+            </div>
+
+            <div class="input-cell" style="flex: 2; display: flex; gap: 0.5rem; align-items: center;">
+              <select class="nav-url-select ghost-select">
+                <option value="/" selected={item.url === '/'}>Home Page</option>
+                {pages.map((p: any) => (
+                  <option value={`/${p.slug}`} selected={item.url === `/${p.slug}`}>{p.title}</option>
+                ))}
+                <option value="custom" selected={!['/', ...pages.map(p => `/${p.slug}`)].includes(item.url)}>Custom Link</option>
+              </select>
+              <input 
+                type="text" 
+                class="nav-url-custom ghost-input" 
+                placeholder="https://..." 
+                value={item.url} 
+                style={['/', ...pages.map(p => `/${p.slug}`)].includes(item.url) ? "display: none;" : "display: block;"} 
+              />
+            </div>
+
+            <button type="button" class="delete-row remove-nav-item">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div class="builder-footer">
+        <button type="submit" class="save-btn">Save Navigation Changes</button>
+      </div>
+    </form>
+  </div>
+
+  <style is:global>
+    .builder-container {
+      max-width: 900px;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+      border: 1px solid #f1f5f9;
+      padding: 2rem;
+    }
+
+    .builder-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .add-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #eff6ff;
+      color: #3b82f6;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .add-btn:hover { background: #dbeafe; transform: translateY(-2px); }
+
+    .list-header {
+      display: flex;
+      gap: 1.5rem;
+      padding: 0 1rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .nav-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border: 1px solid #f1f5f9;
+      border-radius: 16px;
+      transition: 0.3s;
+    }
+    .nav-row:hover {
+      background: white;
+      border-color: #cbd5e1;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+    }
+
+    .handle { color: #cbd5e1; cursor: grab; }
+
+    .ghost-input, .ghost-select {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+    .ghost-input:focus, .ghost-select:focus {
+      background: white;
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+
+    .delete-row {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .delete-row:hover { color: #ef4444; }
+
+    .builder-footer {
+      margin-top: 3rem;
+      border-top: 2px dashed #f1f5f9;
+      padding-top: 2rem;
+    }
+
+    .save-btn {
+      width: 100%;
+      background: #0f172a;
+      color: white;
+      padding: 1.25rem;
+      border-radius: 16px;
+      font-weight: 800;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .save-btn:hover { background: #334155; transform: translateY(-2px); }
+  </style>
+
+  <script is:inline define:vars={{ pagesData: pages.map(p => ({ slug: `/${p.slug}`, title: p.title })) }}>
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('navItemsContainer');
+      const addBtn = document.getElementById('addNavItem');
+      const form = document.getElementById('navbarForm');
+
+      const createItemHTML = () => {
+        const options = pagesData.map(p => `<option value="${p.slug}">${p.title}</option>`).join('');
+        return `
+          <div class="handle">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+          </div>
+          <div class="input-cell" style="flex: 1;">
+            <input type="text" class="nav-label ghost-input" placeholder="Label" required />
+          </div>
+          <div class="input-cell" style="flex: 2; display: flex; gap: 0.5rem; align-items: center;">
+            <select class="nav-url-select ghost-select">
+              <option value="/">Home Page</option>
+              ${options}
+              <option value="custom">Custom Link</option>
+            </select>
+            <input type="text" class="nav-url-custom ghost-input" placeholder="https://..." style="display: none;" />
+          </div>
+          <button type="button" class="delete-row remove-nav-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        `;
+      };
+
+      addBtn.addEventListener('click', () => {
+        const div = document.createElement('div');
+        div.className = 'nav-row';
+        div.innerHTML = createItemHTML();
+        container.appendChild(div);
+      });
+
+      container.addEventListener('change', (e) => {
+        if (e.target.classList.contains('nav-url-select')) {
+          const customInput = e.target.nextElementSibling;
+          if (e.target.value === 'custom') {
+            customInput.style.display = 'block';
+            customInput.required = true;
+          } else {
+            customInput.style.display = 'none';
+            customInput.required = false;
+            customInput.value = e.target.value;
+          }
+        }
+      });
+
+      container.addEventListener('click', (e) => {
+        if (e.target.closest('.remove-nav-item')) {
+          e.target.closest('.nav-row').remove();
+        }
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const items = [];
+        document.querySelectorAll('.nav-row').forEach(row => {
+          const selectVal = row.querySelector('.nav-url-select').value;
+          const customVal = row.querySelector('.nav-url-custom').value;
+          items.push({
+            label: row.querySelector('.nav-label').value,
+            url: selectVal === 'custom' ? customVal : selectVal
+          });
+        });
+
+        const res = await fetch('/api/config/navbar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ navbar: items })
+        });
+
+        if (res.ok) {
+          alert('Navigation updated!');
+          window.location.reload();
+        }
+      });
+    });
+  </script>
+</AdminLayout>

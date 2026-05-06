@@ -1,0 +1,64 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import dbConnect from '../../../lib/db';
+import { Product } from '../../../lib/models';
+
+await dbConnect();
+const products = await Product.find().sort({ createdAt: -1 });
+---
+
+<AdminLayout title="Products" activeNav="products">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h2>All Products</h2>
+      <a href="/admin/products/new" class="btn btn-primary">Add New Product</a>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Image</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((product: any) => (
+            <tr>
+              <td>
+                <img src={product.image || 'https://placehold.co/100x100?text=No+Image'} style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;" />
+              </td>
+              <td style="font-weight: 600;">{product.name}</td>
+              <td>Rp {product.price.toLocaleString('id-ID')}</td>
+              <td>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <a href={`/products/${product._id}`} target="_blank" class="btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border); padding: 0.5rem 0.75rem;" title="View Public Preview">
+                    <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                  </a>
+                  <a href={`/admin/products/edit/${product._id}`} class="btn" style="background: var(--primary-light); color: var(--primary); padding: 0.5rem 0.75rem;">Edit</a>
+                  <button class="btn btn-danger delete-btn" data-id={product._id} style="padding: 0.5rem 0.75rem;">Delete</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to delete this product?')) return;
+        const id = (btn as HTMLElement).dataset.id;
+        const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+      });
+    });
+  </script>
+</AdminLayout>

@@ -1,0 +1,143 @@
+---
+import dbConnect from '../lib/db';
+import { WebConfig } from '../lib/models';
+
+await dbConnect();
+const config = await WebConfig.findOne();
+const navbar = config?.navbar || [];
+---
+
+<header class="public-header">
+  <div class="container header-flex">
+    <a href="/" class="logo-area">
+      {config?.logo ? (
+        <img src={config.logo} alt={config.webName} />
+      ) : (
+        <span class="logo-text">{config?.webName || 'Jayatama'}</span>
+      )}
+    </a>
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+
+    <nav class="desktop-nav">
+      <ul class="nav-list">
+        {navbar.map((item: any) => (
+          <li><a href={item.url} class="nav-link">{item.label}</a></li>
+        ))}
+      </ul>
+    </nav>
+  </div>
+
+  <!-- Mobile Nav Overlay -->
+  <div class="mobile-nav" id="mobileNav">
+    <div class="mobile-nav-content">
+      <ul class="mobile-nav-list">
+        {navbar.map((item: any) => (
+          <li><a href={item.url} class="mobile-nav-link">{item.label}</a></li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</header>
+
+<style>
+  .public-header {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #f1f5f9;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    height: 80px;
+    display: flex;
+    align-items: center;
+  }
+
+  .header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .logo-area img {
+    height: 40px;
+    width: auto;
+  }
+
+  .logo-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #6366f1;
+    text-decoration: none;
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 2.5rem;
+    list-style: none;
+  }
+
+  .nav-link {
+    text-decoration: none;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: 0.2s;
+  }
+
+  .nav-link:hover {
+    color: #6366f1;
+  }
+
+  .mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .mobile-nav {
+    display: none;
+    position: fixed;
+    top: 80px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    z-index: 999;
+    padding: 2rem;
+  }
+
+  .mobile-nav.show {
+    display: block;
+  }
+
+  .mobile-nav-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .mobile-nav-link {
+    text-decoration: none;
+    color: #1e293b;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  @media (max-width: 768px) {
+    .desktop-nav { display: none; }
+    .mobile-menu-btn { display: block; }
+  }
+</style>
+
+<script is:inline>
+  document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
+    document.getElementById('mobileNav')?.classList.toggle('show');
+  });
+</script>
